@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+backend/data/chroma_db/
+backend/data/daily_push.json
+node_modules/
+frontend/dist/
+.DS_Store
