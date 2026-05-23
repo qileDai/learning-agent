@@ -16,7 +16,7 @@ MD_FILES = [
 REQUIRED_PATHS = [
     ROOT / "app" / "main.py",
     ROOT / "app" / "graph" / "workflow.py",
-    ROOT / "app" / "rag" / "chroma_store.py",
+    ROOT / "app" / "rag" / "vector_store.py",
     ROOT / "app" / "scheduler" / "daily_push.py",
     ROOT.parent / "frontend" / "src" / "App.tsx",
 ]

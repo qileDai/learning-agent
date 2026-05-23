@@ -14,7 +14,7 @@ from app.graph.prompts import (
     TOP_K,
 )
 from app.graph.state import AgentState, RetrievedChunk
-from app.rag.chroma_store import similarity_search_with_scores
+from app.rag.vector_store import similarity_search_with_scores
 from app.rag.kb_match import is_chunk_relevant_to_question
 
 _GREETING_RE = re.compile(

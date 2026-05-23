@@ -2,13 +2,28 @@ import zipfile
 from pathlib import Path
 
 from langchain_core.documents import Document
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from pypdf import PdfReader
+
+
+def _load_pdf(path: Path) -> list[Document]:
+    reader = PdfReader(str(path))
+    docs: list[Document] = []
+    for i, page in enumerate(reader.pages):
+        text = (page.extract_text() or "").strip()
+        if text:
+            docs.append(Document(page_content=text, metadata={"page": i}))
+    return docs
+
+
+def _load_text(path: Path) -> list[Document]:
+    text = path.read_text(encoding="utf-8").strip()
+    return [Document(page_content=text)] if text else []
 
 
 def _load_docx(path: Path) -> list[Document]:
     """加载 Word；若扩展名为 .docx 但实际为纯文本，则按 UTF-8 读取。"""
     if not zipfile.is_zipfile(path):
-        return TextLoader(str(path), encoding="utf-8").load()
+        return _load_text(path)
     from docx import Document as DocxDocument
 
     doc = DocxDocument(str(path))
@@ -19,13 +34,11 @@ def _load_docx(path: Path) -> list[Document]:
 def load_file(path: Path) -> list[Document]:
     suffix = path.suffix.lower()
     if suffix == ".pdf":
-        return PyPDFLoader(str(path)).load()
+        return _load_pdf(path)
     if suffix in (".docx", ".doc"):
         return _load_docx(path)
-    if suffix in (".md", ".markdown"):
-        return TextLoader(str(path), encoding="utf-8").load()
-    if suffix in (".txt",):
-        return TextLoader(str(path), encoding="utf-8").load()
+    if suffix in (".md", ".markdown", ".txt"):
+        return _load_text(path)
     return []
 
 

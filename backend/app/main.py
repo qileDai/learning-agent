@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import settings
@@ -24,6 +26,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router, prefix="/api")
+
+_static = Path(settings.static_dir)
+if _static.is_dir():
+    app.mount("/", StaticFiles(directory=_static, html=True), name="frontend")
 
 
 if __name__ == "__main__":

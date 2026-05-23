@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.config import settings
-from app.rag.chroma_store import ingest_documents
+from app.rag.vector_store import ingest_documents
 from app.rag.loaders import load_directory
 
 

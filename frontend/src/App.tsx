@@ -43,9 +43,10 @@ export default function App() {
     try {
       const res = await chatStart(q);
       setThreadId(res.thread_id);
-      if (res.status === "awaiting_selection" && res.kb_hit && res.retrieved_chunks?.length) {
-        setChunks(res.retrieved_chunks);
-        setSelectedId(res.retrieved_chunks[0]?.id ?? null);
+      const retrievedChunks = res.retrieved_chunks;
+      if (res.status === "awaiting_selection" && res.kb_hit && retrievedChunks?.length) {
+        setChunks(retrievedChunks);
+        setSelectedId(retrievedChunks[0]?.id ?? null);
         setPhase("select");
         setMessages((m) => [
           ...m,
@@ -53,7 +54,7 @@ export default function App() {
             role: "assistant",
             content:
               res.message ??
-              `知识库已匹配 ${res.retrieved_chunks.length} 条资料，请单选 1 条。`,
+              `知识库已匹配 ${retrievedChunks.length} 条资料，请单选 1 条。`,
           },
         ]);
       } else if (res.status === "completed" && res.answer) {

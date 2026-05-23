@@ -4,6 +4,8 @@ __pycache__/
 venv/
 .env
 backend/data/chroma_db/
+backend/data/vector_index/
+backend/static/
 backend/data/daily_push.json
 node_modules/
 frontend/dist/

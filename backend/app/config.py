@@ -17,12 +17,13 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
 
-    chroma_persist_dir: str = str(BACKEND_ROOT / "data" / "chroma_db")
+    vector_index_dir: str = str(BACKEND_ROOT / "data" / "vector_index")
+    static_dir: str = str(BACKEND_ROOT / "static")
     knowledge_dir: str = str(BACKEND_ROOT / "data" / "knowledge")
 
     host: str = "0.0.0.0"
     port: int = 8000
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000"
 
     daily_push_cron_hour: int = 8
     daily_push_cron_minute: int = 0

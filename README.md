@@ -1,11 +1,11 @@
 # 教育类智能体 (Education Agent)
 
-LangGraph 多智能体协同 · Chroma 向量检索 · OpenAI 中转站兼容 · 每日 AI 推送 · React 前端
+LangGraph 多智能体协同 · 轻量本地向量检索（numpy）· OpenAI 中转站兼容 · 每日 AI 推送 · React 前端
 
 ## 架构
 
 ```
-用户提问 → [检索节点] Chroma 相似度搜索
+用户提问 → [检索节点] 本地向量索引相似度搜索
          → [人工选择] LangGraph interrupt，前端勾选片段
          → [回答节点] 基于选中片段生成教育辅导回答
 ```
@@ -50,6 +50,19 @@ npm run dev
 
 浏览器打开 http://localhost:5173
 
+### Docker（前后端一体）
+
+```bash
+# 在项目根目录（含 Dockerfile 的目录）
+docker build -t learning-agent .
+docker run --rm -p 8000:8000 -p 22:22 \
+  -e OPENAI_API_KEY=sk-xxx \
+  -e OPENAI_API_BASE=https://你的中转地址/v1 \
+  learning-agent
+```
+
+浏览器打开 http://localhost:8000（API 仍为 `/api/*`）。首次使用在前端点击 **「重建向量索引」**。
+
 ### 3. OpenAI 中转站
 
 `.env` 示例：
@@ -89,7 +102,7 @@ agent/
 ├── backend/
 │   ├── app/
 │   │   ├── graph/      # LangGraph 工作流
-│   │   ├── rag/        # Chroma + 多格式加载
+│   │   ├── rag/        # 轻量向量索引 + 多格式加载
 │   │   ├── scheduler/  # 每日推送
 │   │   └── api/
 │   ├── data/knowledge/
