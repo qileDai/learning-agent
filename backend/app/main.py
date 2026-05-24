@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import settings
+from app.observability import MetricsMiddleware, metrics_response
 from app.scheduler.daily_push import start_scheduler, stop_scheduler
 
 
@@ -18,6 +19,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Education Agent API", lifespan=lifespan)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -26,6 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router, prefix="/api")
+
+
+@app.get("/metrics")
+def metrics():
+    return metrics_response()
+
 
 _static = Path(settings.static_dir)
 if _static.is_dir():

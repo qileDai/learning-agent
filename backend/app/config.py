@@ -19,6 +19,22 @@ class Settings(BaseSettings):
 
     vector_index_dir: str = str(BACKEND_ROOT / "data" / "vector_index")
     graph_index_dir: str = str(BACKEND_ROOT / "data" / "graph_index")
+    graph_store_backend: str = "neo4j"
+    neo4j_uri: str = "bolt://127.0.0.1:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = ""
+    neo4j_database: str = "neo4j"
+    elasticsearch_enabled: bool = False
+    elasticsearch_url: str = "http://127.0.0.1:9200"
+    elasticsearch_api_key: str = ""
+    elasticsearch_username: str = ""
+    elasticsearch_password: str = ""
+    elasticsearch_index: str = "education-agent-knowledge"
+    elasticsearch_verify_certs: bool = False
+    milvus_enabled: bool = False
+    milvus_uri: str = "http://127.0.0.1:19530"
+    milvus_token: str = ""
+    milvus_collection: str = "education_agent_chunks"
     static_dir: str = str(BACKEND_ROOT / "static")
     media_output_dir: str = str(BACKEND_ROOT / "static" / "generated_media")
     knowledge_dir: str = str(BACKEND_ROOT / "data" / "knowledge")
@@ -30,6 +46,13 @@ class Settings(BaseSettings):
     retrieval_max_per_source: int = 2
     retrieval_chunk_budget_tokens: int = 260
     retrieval_graph_budget_tokens: int = 120
+    retrieval_strategy_router_enabled: bool = True
+    retrieval_rerank_window: int = 24
+    retrieval_cache_enabled: bool = True
+    retrieval_cache_file: str = str(BACKEND_ROOT / "data" / "graph_index" / "retrieval_cache.json")
+    retrieval_cache_similarity_threshold: float = 0.84
+    retrieval_cache_max_entries: int = 200
+    retrieval_answer_grounding_threshold: float = 0.18
 
     image_generation_provider: str = "demo"
     image_generation_api_url: str = ""
@@ -49,7 +72,7 @@ class Settings(BaseSettings):
     stability_output_format: str = "png"
 
     runway_api_base_url: str = "https://api.dev.runwayml.com"
-    runway_api_key: str = "sk-sb65cwGqeYrKUJvdbBMALbirDygBLlhYwTsP5PnmA0cCzS9t"
+    runway_api_key: str = ""
     runway_api_version: str = "2024-11-06"
     runway_image_model: str = "gen4_image"
     runway_video_model: str = "gen4.5"

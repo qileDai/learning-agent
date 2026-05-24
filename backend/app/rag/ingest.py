@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.config import settings
-from app.rag.graph_store import build_graph_index
+from app.rag.graph_store import active_graph_backend, build_graph_index
 from app.rag.loaders import load_directory
 from app.rag.vector_store import ingest_documents
 
@@ -30,5 +30,6 @@ def ingest_knowledge_base(reset: bool = False) -> dict:
         "by_type": by_type,
         "subjects": subjects,
         "graph": graph.get("stats", {}),
+        "graph_backend": active_graph_backend(),
         "xinli_included": "xinli.md" in sources or "xinli.docx" in sources,
     }
