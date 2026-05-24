@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.graph.prompts import TOP_K
 from app.graph.workflow import get_graph
+from app.media.service import create_image_job, create_video_job, get_media_job
 from app.rag.graph_store import graph_overview, search_graph
 from app.rag.ingest import ingest_knowledge_base
 from app.scheduler.daily_push import generate_daily_plan, get_push_history
@@ -29,6 +30,19 @@ class IngestRequest(BaseModel):
     reset: bool = False
 
 
+class ImageGenerationRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=1000)
+    style: str = Field(default="教育海报", min_length=1, max_length=80)
+    aspect_ratio: str = Field(default="16:9", min_length=3, max_length=20)
+
+
+class VideoGenerationRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=1400)
+    mode: str = Field(default="text-to-video", min_length=1, max_length=40)
+    duration_seconds: int = Field(default=6, ge=3, le=20)
+    source_image_url: str | None = Field(default=None, max_length=2000)
+
+
 @router.get("/health")
 def health():
     return {"status": "ok", "service": "education-agent"}
@@ -37,6 +51,24 @@ def health():
 @router.post("/ingest")
 def ingest(req: IngestRequest):
     return ingest_knowledge_base(reset=req.reset)
+
+
+@router.post("/media/image/generate")
+async def generate_image(req: ImageGenerationRequest):
+    return await create_image_job(req.prompt, req.style, req.aspect_ratio)
+
+
+@router.post("/media/video/generate")
+async def generate_video(req: VideoGenerationRequest):
+    return await create_video_job(req.prompt, req.mode, req.duration_seconds, req.source_image_url)
+
+
+@router.get("/media/jobs/{job_id}")
+async def media_job(job_id: str):
+    job = await get_media_job(job_id)
+    if not job:
+        raise HTTPException(404, "Media job not found")
+    return job
 
 
 @router.get("/graph/overview")

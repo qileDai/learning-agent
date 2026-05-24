@@ -47,6 +47,20 @@
   margin-bottom: 0.75rem;
 }
 
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding-left: 1rem;
+}
+
+.media-pitch {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(59, 130, 246, 0.04));
+  border-radius: var(--radius);
+}
+
 .btn {
   padding: 0.55rem 1rem;
   font-size: 0.9rem;
@@ -218,6 +232,196 @@
   max-height: 100vh;
 }
 
+.media-studio {
+  padding: 1.25rem 1.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.media-studio__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.media-studio__header h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.35rem;
+}
+
+.media-studio__header p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.media-badge {
+  max-width: 380px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #dbeafe;
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: minmax(340px, 1.05fr) minmax(320px, 0.95fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.media-form,
+.media-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.field span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.field input,
+.field select,
+.field textarea,
+.composer textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+}
+
+.field textarea,
+.composer textarea {
+  resize: vertical;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.media-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.media-actions .btn {
+  width: auto;
+}
+
+.media-action-secondary {
+  width: auto !important;
+}
+
+.scene-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.scene-chip {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.preview-head h3 {
+  font-size: 1rem;
+}
+
+.preview-meta {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.placeholder {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.media-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.media-block a {
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+.media-image,
+.media-video {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #020617;
+  object-fit: cover;
+}
+
+.media-video {
+  min-height: 240px;
+}
+
+.storyboard {
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.storyboard h4 {
+  font-size: 0.88rem;
+  margin-bottom: 0.5rem;
+}
+
+.storyboard pre {
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.media-error {
+  padding: 0;
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -250,6 +454,7 @@
   padding: 0.85rem 1.1rem;
   border-radius: var(--radius);
   line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .bubble.user {
@@ -318,7 +523,7 @@
 .error {
   color: #f87171;
   padding: 0 1.5rem;
-  font-size: 0.9rem;
+  white-space: pre-wrap;
 }
 
 .composer {
@@ -334,11 +539,25 @@
   resize: none;
 }
 
+@media (max-width: 1100px) {
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: 1fr;
   }
+
   .sidebar {
     display: none;
+  }
+
+  .media-studio__header,
+  .media-actions,
+  .field-row {
+    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }

@@ -18,6 +18,18 @@ export interface GraphSummary {
   has_graph_context: boolean;
 }
 
+export interface RetrievalSummary {
+  query_expansions: string[];
+  route_subjects: string[];
+  graph_documents: number;
+  vector_candidates: number;
+  lexical_candidates: number;
+  final_candidates: number;
+  max_per_source: number;
+  chunk_budget_tokens: number;
+  graph_budget_tokens: number;
+}
+
 export interface ChatStartResponse {
   thread_id: string;
   status: "awaiting_selection" | "completed";
@@ -28,6 +40,7 @@ export interface ChatStartResponse {
   message?: string | null;
   selection_mode?: "single";
   graph_summary?: GraphSummary;
+  retrieval_summary?: RetrievalSummary;
 }
 
 export interface DailyPush {
@@ -56,6 +69,29 @@ export interface DailySchedule {
   server_time: string;
   active_task_id: string | null;
   tasks: ScheduleTask[];
+}
+
+export interface MediaJob {
+  job_id: string;
+  kind: "image" | "video";
+  provider: string;
+  status: "completed" | "processing" | "failed" | "mock_ready";
+  prompt: string;
+  message?: string;
+  preview_url?: string | null;
+  image_url?: string | null;
+  poster_url?: string | null;
+  video_url?: string | null;
+  storyboard?: string | null;
+  storyboard_url?: string | null;
+  style?: string;
+  aspect_ratio?: string;
+  mode?: string;
+  duration_seconds?: number;
+  source_image_url?: string | null;
+  provider_model?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export async function getDailySchedule(): Promise<DailySchedule> {
@@ -95,6 +131,42 @@ export async function chatResume(threadId: string, selectedChunkIds: string[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ thread_id: threadId, selected_chunk_ids: selectedChunkIds }),
   });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function generateImage(prompt: string, style: string, aspectRatio: string): Promise<MediaJob> {
+  const r = await fetch(`${API}/media/image/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, style, aspect_ratio: aspectRatio }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function generateVideo(
+  prompt: string,
+  mode: "text-to-video" | "image-to-video",
+  durationSeconds: number,
+  sourceImageUrl?: string
+): Promise<MediaJob> {
+  const r = await fetch(`${API}/media/video/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt,
+      mode,
+      duration_seconds: durationSeconds,
+      source_image_url: sourceImageUrl || null,
+    }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getMediaJob(jobId: string): Promise<MediaJob> {
+  const r = await fetch(`${API}/media/jobs/${jobId}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
