@@ -1,6 +1,5 @@
 from typing import Annotated, TypedDict
 
-from langchain_core.documents import Document
 from langgraph.graph.message import add_messages
 
 
@@ -10,6 +9,10 @@ class RetrievedChunk(TypedDict):
     source: str
     file_type: str
     score: float | None
+    subject: str | None
+    chapter: str | None
+    retrieval_mode: str | None
+    concepts: list[str]
 
 
 class AgentState(TypedDict):
@@ -21,3 +24,6 @@ class AgentState(TypedDict):
     thread_id: str
     kb_hit: bool
     answer_mode: str
+    graph_context: str
+    graph_matched_concepts: list[str]
+    graph_related_concepts: list[str]

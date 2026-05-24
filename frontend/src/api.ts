@@ -6,17 +6,28 @@ export interface RetrievedChunk {
   source: string;
   file_type: string;
   score?: number | null;
+  subject?: string | null;
+  chapter?: string | null;
+  retrieval_mode?: string | null;
+  concepts?: string[];
+}
+
+export interface GraphSummary {
+  matched_concepts: string[];
+  related_concepts: string[];
+  has_graph_context: boolean;
 }
 
 export interface ChatStartResponse {
   thread_id: string;
   status: "awaiting_selection" | "completed";
-  mode?: "kb" | "llm" | "greeting";
+  mode?: "kb" | "graph_kb" | "llm" | "greeting";
   kb_hit?: boolean;
   retrieved_chunks?: RetrievedChunk[];
   answer?: string;
   message?: string | null;
   selection_mode?: "single";
+  graph_summary?: GraphSummary;
 }
 
 export interface DailyPush {

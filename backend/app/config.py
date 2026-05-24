@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
 
     vector_index_dir: str = str(BACKEND_ROOT / "data" / "vector_index")
+    graph_index_dir: str = str(BACKEND_ROOT / "data" / "graph_index")
     static_dir: str = str(BACKEND_ROOT / "static")
     knowledge_dir: str = str(BACKEND_ROOT / "data" / "knowledge")
+    knowledge_metadata_file: str = str(BACKEND_ROOT / "data" / "knowledge_metadata.json")
 
     host: str = "0.0.0.0"
     port: int = 8000

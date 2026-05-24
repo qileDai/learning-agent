@@ -14,7 +14,7 @@ from app.graph.prompts import (
     TOP_K,
 )
 from app.graph.state import AgentState, RetrievedChunk
-from app.rag.vector_store import similarity_search_with_scores
+from app.rag.hybrid_retriever import hybrid_retrieve
 from app.rag.kb_match import is_chunk_relevant_to_question
 
 _GREETING_RE = re.compile(
@@ -49,6 +49,10 @@ def _doc_to_chunk(doc: Document, index: int) -> RetrievedChunk:
         source=meta.get("source", "unknown"),
         file_type=meta.get("file_type", "unknown"),
         score=meta.get("score"),
+        subject=meta.get("subject"),
+        chapter=meta.get("chapter"),
+        retrieval_mode=meta.get("retrieval_mode"),
+        concepts=list(meta.get("concepts") or []),
     )
 
 
@@ -58,6 +62,18 @@ def _question_from_state(state: AgentState) -> str:
         last = state["messages"][-1]
         question = getattr(last, "content", str(last))
     return question
+
+
+def _graph_message(graph_result: dict) -> str:
+    matched = [item.get("name", "") for item in graph_result.get("matched_concepts", []) if item.get("name")]
+    related = [item for item in graph_result.get("related_concepts", []) if item]
+    if not matched:
+        return RETRIEVE_HINT
+    text = f"图谱已识别概念：{'、'.join(matched)}。"
+    if related:
+        text += f" 关联概念：{'、'.join(related[:4])}。"
+    text += " 请单选 1 条资料，我将结合图谱关系严格生成解答。"
+    return text
 
 
 def greeting_node(state: AgentState) -> dict:
@@ -75,31 +91,45 @@ def greeting_node(state: AgentState) -> dict:
         "final_answer": answer,
         "answer_mode": "greeting",
         "kb_hit": False,
+        "graph_context": "",
+        "graph_matched_concepts": [],
+        "graph_related_concepts": [],
         "messages": [AIMessage(content=answer)],
     }
 
 
 def retrieve_node(state: AgentState) -> dict:
-    """检索知识库；仅保留与问题真正相关的片段。"""
     question = _question_from_state(state)
-    pairs = similarity_search_with_scores(question, k=FETCH_K)
+    documents, graph_result = hybrid_retrieve(question, vector_k=FETCH_K)
+    matched_concepts = [item.get("name", "") for item in graph_result.get("matched_concepts", []) if item.get("name")]
+    related_concepts = [item for item in graph_result.get("related_concepts", []) if item]
     relevant_docs: list[Document] = []
-    for doc, distance in pairs:
-        if is_chunk_relevant_to_question(question, doc.page_content, float(distance)):
-            meta = dict(doc.metadata or {})
-            meta["score"] = round(float(distance), 4)
+    for doc in documents:
+        meta = dict(doc.metadata or {})
+        distance = meta.get("score")
+        if is_chunk_relevant_to_question(
+            question,
+            doc.page_content,
+            float(distance) if isinstance(distance, (int, float)) else None,
+            metadata=meta,
+            matched_concepts=matched_concepts,
+        ):
             relevant_docs.append(Document(page_content=doc.page_content, metadata=meta))
             if len(relevant_docs) >= TOP_K:
                 break
 
     if relevant_docs:
         chunks = [_doc_to_chunk(d, i) for i, d in enumerate(relevant_docs)]
+        graph_context = next((d.page_content for d in relevant_docs if d.metadata.get("file_type") == "graph"), "")
         return {
             "question": question,
             "kb_hit": True,
-            "answer_mode": "kb",
+            "answer_mode": "graph_kb" if graph_context else "kb",
             "retrieved_chunks": chunks,
-            "messages": [AIMessage(content=RETRIEVE_HINT)],
+            "graph_context": graph_context,
+            "graph_matched_concepts": matched_concepts,
+            "graph_related_concepts": related_concepts,
+            "messages": [AIMessage(content=_graph_message(graph_result))],
         }
 
     return {
@@ -107,6 +137,9 @@ def retrieve_node(state: AgentState) -> dict:
         "kb_hit": False,
         "answer_mode": "llm",
         "retrieved_chunks": [],
+        "graph_context": "",
+        "graph_matched_concepts": matched_concepts,
+        "graph_related_concepts": related_concepts,
         "messages": [
             AIMessage(content="知识库中未找到与您问题直接相关的资料，将为您生成专业解答。")
         ],
@@ -114,7 +147,6 @@ def retrieve_node(state: AgentState) -> dict:
 
 
 def generate_answer_llm_node(state: AgentState) -> dict:
-    """知识库无匹配：大模型根据用户问题直接作答。"""
     question = state.get("question", "") or _question_from_state(state)
     llm = get_llm()
     response = llm.invoke(
@@ -133,7 +165,6 @@ def generate_answer_llm_node(state: AgentState) -> dict:
 
 
 def generate_answer_node(state: AgentState) -> dict:
-    """知识库有匹配且用户已选资料：严格依据所选片段作答。"""
     question = state.get("question", "")
     chunks = state.get("retrieved_chunks", [])
     selected_ids = state.get("selected_chunk_ids") or []
@@ -148,18 +179,26 @@ def generate_answer_node(state: AgentState) -> dict:
         return generate_answer_llm_node(state)
 
     chunk = selected[0]
-    context = f"[来源: {chunk['source']} | 类型: {chunk['file_type']}]\n{chunk['content']}"
-    user = (
-        f"用户问题：{question}\n\n"
-        f"知识库参考资料（仅此一段）：\n{context}\n\n"
-        "请给出具体、可直接用于学习的回答。"
-    )
+    graph_context = state.get("graph_context") or ""
+    concepts = "、".join(chunk.get("concepts") or [])
+    context_header = f"[来源: {chunk['source']} | 类型: {chunk['file_type']}]"
+    if chunk.get("subject"):
+        context_header += f"[学科: {chunk['subject']}]"
+    if chunk.get("chapter"):
+        context_header += f"[章节: {chunk['chapter']}]"
+    if concepts:
+        context_header += f"[概念: {concepts}]"
+    context = f"{context_header}\n{chunk['content']}"
+    user = f"用户问题：{question}\n\n知识库参考资料（仅此一段）：\n{context}"
+    if graph_context and chunk.get("file_type") != "graph":
+        user += f"\n\n图谱补充关系：\n{graph_context}"
+    user += "\n\n请给出具体、可直接用于学习的回答。"
     llm = get_llm()
     response = llm.invoke([SystemMessage(content=ANSWER_SYSTEM), HumanMessage(content=user)])
     answer = response.content if hasattr(response, "content") else str(response)
     return {
         "final_answer": answer,
-        "answer_mode": "kb",
+        "answer_mode": "graph_kb" if graph_context else "kb",
         "kb_hit": True,
         "messages": [AIMessage(content=answer)],
     }

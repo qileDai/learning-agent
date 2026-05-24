@@ -5,6 +5,7 @@ venv/
 .env
 backend/data/chroma_db/
 backend/data/vector_index/
+backend/data/graph_index/
 backend/static/
 backend/data/daily_push.json
 node_modules/

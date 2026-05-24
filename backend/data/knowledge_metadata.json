@@ -1,0 +1,361 @@
+{
+  "sources": {
+    "biology_cell_structure.docx": {
+      "subject": "biology",
+      "grade": "高中",
+      "chapter": "细胞结构与功能",
+      "difficulty": "基础",
+      "summary": "介绍细胞膜、细胞核、线粒体、叶绿体等结构及其功能。",
+      "concepts": ["细胞", "细胞膜", "细胞核", "线粒体", "叶绿体", "细胞壁"]
+    },
+    "chemistry_periodic_table.md": {
+      "subject": "chemistry",
+      "grade": "初高中衔接",
+      "chapter": "元素周期表初步",
+      "difficulty": "基础",
+      "summary": "讲解元素周期表的周期、族与金属性变化规律。",
+      "concepts": ["元素周期表", "周期", "族", "原子序数", "金属性", "非金属性"]
+    },
+    "cs_python_basics.md": {
+      "subject": "computer_science",
+      "grade": "入门",
+      "chapter": "Python 基础语法",
+      "difficulty": "基础",
+      "summary": "覆盖变量、列表、条件、循环和列表推导式等 Python 入门知识。",
+      "concepts": ["Python", "变量", "列表", "条件语句", "循环", "列表推导式"]
+    },
+    "english_grammar_tenses.docx": {
+      "subject": "english",
+      "grade": "初中",
+      "chapter": "时态总览",
+      "difficulty": "基础",
+      "summary": "概括一般现在时、一般过去时、一般将来时与现在进行时的核心用法。",
+      "concepts": ["英语时态", "一般现在时", "一般过去时", "一般将来时", "现在进行时"]
+    },
+    "geography_climate_zones.md": {
+      "subject": "geography",
+      "grade": "初中",
+      "chapter": "气候带与自然环境",
+      "difficulty": "基础",
+      "summary": "讲解热带、温带、寒带气候分布及影响因素。",
+      "concepts": ["气候带", "热带", "温带", "寒带", "降水", "纬度"]
+    },
+    "history_ancient_china.md": {
+      "subject": "history",
+      "grade": "初中",
+      "chapter": "中国古代王朝",
+      "difficulty": "基础",
+      "summary": "梳理夏商周至秦汉的基本脉络和制度演变。",
+      "concepts": ["中国古代史", "夏朝", "商朝", "周朝", "秦朝", "汉朝", "郡县制"]
+    },
+    "literature_poetry_analysis.md": {
+      "subject": "literature",
+      "grade": "初中",
+      "chapter": "古诗词鉴赏",
+      "difficulty": "提升",
+      "summary": "介绍意象、主题和表达情感的常见分析方法。",
+      "concepts": ["古诗词", "意象", "月亮意象", "思乡", "借景抒情", "诗歌鉴赏"]
+    },
+    "math_calculus_intro.md": {
+      "subject": "math",
+      "grade": "高中",
+      "chapter": "微积分初步",
+      "difficulty": "提升",
+      "summary": "介绍极限、导数、积分三者的基本含义与联系。",
+      "concepts": ["微积分", "极限", "导数", "积分", "切线斜率", "变化率"]
+    },
+    "math_quadratic_equations.pdf": {
+      "subject": "math",
+      "grade": "初中",
+      "chapter": "一元二次方程",
+      "difficulty": "基础",
+      "summary": "讲解一元二次方程定义、求根公式与判别式。",
+      "concepts": ["一元二次方程", "求根公式", "判别式", "配方法", "因式分解"]
+    },
+    "physics_newton_laws.pdf": {
+      "subject": "physics",
+      "grade": "初中",
+      "chapter": "牛顿运动定律",
+      "difficulty": "基础",
+      "summary": "介绍牛顿三大定律及 F=ma 的物理意义。",
+      "concepts": ["牛顿第一定律", "牛顿第二定律", "牛顿第三定律", "力", "加速度", "惯性", "F=ma"]
+    },
+    "xinli.md": {
+      "subject": "psychology",
+      "grade": "通识",
+      "chapter": "情绪与压力管理",
+      "difficulty": "基础",
+      "summary": "介绍情绪识别、压力来源与自我调节策略。",
+      "concepts": ["心理健康", "情绪", "压力", "焦虑", "自我调节", "情绪识别"]
+    }
+  },
+  "concepts": {
+    "Python": {
+      "subject": "computer_science",
+      "aliases": ["python", "Python 编程"],
+      "description": "一种通用编程语言，适合入门学习。"
+    },
+    "列表推导式": {
+      "subject": "computer_science",
+      "aliases": ["list comprehension", "推导式"],
+      "description": "Python 中用一行语法生成列表的表达方式。"
+    },
+    "循环": {
+      "subject": "computer_science",
+      "aliases": ["for 循环", "while 循环"],
+      "description": "程序重复执行某段逻辑的控制结构。"
+    },
+    "微积分": {
+      "subject": "math",
+      "aliases": ["高数", "calculus"],
+      "description": "研究极限、导数和积分的数学分支。"
+    },
+    "极限": {
+      "subject": "math",
+      "aliases": ["limit"],
+      "description": "描述变量无限逼近某值时函数行为的概念。"
+    },
+    "导数": {
+      "subject": "math",
+      "aliases": ["求导", "变化率"],
+      "description": "描述函数局部变化快慢的概念。"
+    },
+    "积分": {
+      "subject": "math",
+      "aliases": ["integral"],
+      "description": "描述累积量和面积的数学工具。"
+    },
+    "切线斜率": {
+      "subject": "math",
+      "aliases": ["斜率", "切线"],
+      "description": "导数的几何意义之一。"
+    },
+    "一元二次方程": {
+      "subject": "math",
+      "aliases": ["二次方程"],
+      "description": "最高次数为二次的整式方程。"
+    },
+    "判别式": {
+      "subject": "math",
+      "aliases": ["delta", "Δ"],
+      "description": "用于判断一元二次方程根情况的表达式。"
+    },
+    "求根公式": {
+      "subject": "math",
+      "aliases": ["公式法"],
+      "description": "求解一元二次方程根的标准公式。"
+    },
+    "牛顿第二定律": {
+      "subject": "physics",
+      "aliases": ["F=ma", "牛二"],
+      "description": "力等于质量与加速度乘积的定律。"
+    },
+    "牛顿第一定律": {
+      "subject": "physics",
+      "aliases": ["惯性定律"],
+      "description": "物体在不受外力或合外力为零时保持原运动状态。"
+    },
+    "牛顿第三定律": {
+      "subject": "physics",
+      "aliases": ["作用力与反作用力"],
+      "description": "作用力和反作用力大小相等方向相反。"
+    },
+    "力": {
+      "subject": "physics",
+      "aliases": ["受力"],
+      "description": "改变物体运动状态的作用。"
+    },
+    "加速度": {
+      "subject": "physics",
+      "aliases": ["acceleration"],
+      "description": "速度变化快慢的物理量。"
+    },
+    "惯性": {
+      "subject": "physics",
+      "aliases": ["保持原状态的性质"],
+      "description": "物体保持原有运动状态不变的性质。"
+    },
+    "古诗词": {
+      "subject": "literature",
+      "aliases": ["诗词"],
+      "description": "中国古典诗歌作品的统称。"
+    },
+    "意象": {
+      "subject": "literature",
+      "aliases": ["诗歌意象"],
+      "description": "诗歌中承载情感与主题的艺术形象。"
+    },
+    "月亮意象": {
+      "subject": "literature",
+      "aliases": ["月意象", "月"],
+      "description": "古诗词中常与思乡、孤独、怀人相关的意象。"
+    },
+    "思乡": {
+      "subject": "literature",
+      "aliases": ["乡愁"],
+      "description": "古诗词常见主题之一。"
+    },
+    "借景抒情": {
+      "subject": "literature",
+      "aliases": ["借景"],
+      "description": "通过景物描写表达感情的写法。"
+    },
+    "英语时态": {
+      "subject": "english",
+      "aliases": ["时态"],
+      "description": "英语中表示动作发生时间和状态的语法系统。"
+    },
+    "一般现在时": {
+      "subject": "english",
+      "aliases": ["present simple"],
+      "description": "表示习惯、事实或经常发生的动作。"
+    },
+    "一般过去时": {
+      "subject": "english",
+      "aliases": ["past simple"],
+      "description": "表示过去发生且已结束的动作。"
+    },
+    "一般将来时": {
+      "subject": "english",
+      "aliases": ["future simple"],
+      "description": "表示将要发生的动作或状态。"
+    },
+    "现在进行时": {
+      "subject": "english",
+      "aliases": ["present continuous"],
+      "description": "表示说话时正在进行的动作。"
+    },
+    "元素周期表": {
+      "subject": "chemistry",
+      "aliases": ["周期表"],
+      "description": "按照原子序数排列元素并体现周期规律的表。"
+    },
+    "周期": {
+      "subject": "chemistry",
+      "aliases": ["横行"],
+      "description": "元素周期表中的横向排列。"
+    },
+    "族": {
+      "subject": "chemistry",
+      "aliases": ["纵列"],
+      "description": "元素周期表中的纵向排列。"
+    },
+    "细胞": {
+      "subject": "biology",
+      "aliases": ["cell"],
+      "description": "生物体结构和功能的基本单位。"
+    },
+    "细胞膜": {
+      "subject": "biology",
+      "aliases": ["膜结构"],
+      "description": "控制物质进出的边界结构。"
+    },
+    "线粒体": {
+      "subject": "biology",
+      "aliases": ["mitochondria"],
+      "description": "细胞进行有氧呼吸并提供能量的场所。"
+    },
+    "叶绿体": {
+      "subject": "biology",
+      "aliases": ["chloroplast"],
+      "description": "植物细胞进行光合作用的场所。"
+    },
+    "气候带": {
+      "subject": "geography",
+      "aliases": ["气候区"],
+      "description": "按气温和降水特征划分的地理带。"
+    },
+    "热带": {
+      "subject": "geography",
+      "aliases": ["tropical"],
+      "description": "全年高温的气候带。"
+    },
+    "温带": {
+      "subject": "geography",
+      "aliases": ["temperate"],
+      "description": "四季分明的气候带。"
+    },
+    "寒带": {
+      "subject": "geography",
+      "aliases": ["polar"],
+      "description": "终年低温的气候带。"
+    },
+    "中国古代史": {
+      "subject": "history",
+      "aliases": ["古代中国历史"],
+      "description": "中国古代王朝发展与制度演变的历史。"
+    },
+    "秦朝": {
+      "subject": "history",
+      "aliases": ["秦"],
+      "description": "中国历史上第一个大一统王朝。"
+    },
+    "汉朝": {
+      "subject": "history",
+      "aliases": ["汉"],
+      "description": "中国古代重要统一王朝。"
+    },
+    "郡县制": {
+      "subject": "history",
+      "aliases": ["郡县制度"],
+      "description": "秦汉时期加强中央集权的重要制度。"
+    },
+    "心理健康": {
+      "subject": "psychology",
+      "aliases": ["心理"],
+      "description": "个体在情绪、认知和行为上保持良好状态。"
+    },
+    "压力": {
+      "subject": "psychology",
+      "aliases": ["stress"],
+      "description": "个体面对挑战或负担时产生的心理反应。"
+    },
+    "焦虑": {
+      "subject": "psychology",
+      "aliases": ["anxiety"],
+      "description": "常见的紧张、不安情绪状态。"
+    },
+    "自我调节": {
+      "subject": "psychology",
+      "aliases": ["调节情绪"],
+      "description": "个体主动调整情绪和行为的能力。"
+    }
+  },
+  "relations": [
+    {"source": "微积分", "relation": "包含", "target": "极限", "subject": "math", "evidence_sources": ["math_calculus_intro.md"]},
+    {"source": "微积分", "relation": "包含", "target": "导数", "subject": "math", "evidence_sources": ["math_calculus_intro.md"]},
+    {"source": "微积分", "relation": "包含", "target": "积分", "subject": "math", "evidence_sources": ["math_calculus_intro.md"]},
+    {"source": "导数", "relation": "前置依赖", "target": "极限", "subject": "math", "evidence_sources": ["math_calculus_intro.md"]},
+    {"source": "导数", "relation": "几何意义", "target": "切线斜率", "subject": "math", "evidence_sources": ["math_calculus_intro.md"]},
+    {"source": "一元二次方程", "relation": "求解方法", "target": "求根公式", "subject": "math", "evidence_sources": ["math_quadratic_equations.pdf"]},
+    {"source": "求根公式", "relation": "依赖", "target": "判别式", "subject": "math", "evidence_sources": ["math_quadratic_equations.pdf"]},
+    {"source": "牛顿第二定律", "relation": "表达式", "target": "F=ma", "subject": "physics", "evidence_sources": ["physics_newton_laws.pdf"]},
+    {"source": "牛顿第二定律", "relation": "涉及", "target": "力", "subject": "physics", "evidence_sources": ["physics_newton_laws.pdf"]},
+    {"source": "牛顿第二定律", "relation": "涉及", "target": "加速度", "subject": "physics", "evidence_sources": ["physics_newton_laws.pdf"]},
+    {"source": "牛顿第一定律", "relation": "核心概念", "target": "惯性", "subject": "physics", "evidence_sources": ["physics_newton_laws.pdf"]},
+    {"source": "牛顿第二定律", "relation": "建立在", "target": "牛顿第一定律", "subject": "physics", "evidence_sources": ["physics_newton_laws.pdf"]},
+    {"source": "古诗词", "relation": "分析维度", "target": "意象", "subject": "literature", "evidence_sources": ["literature_poetry_analysis.md"]},
+    {"source": "月亮意象", "relation": "常表达", "target": "思乡", "subject": "literature", "evidence_sources": ["literature_poetry_analysis.md"]},
+    {"source": "古诗词", "relation": "常用手法", "target": "借景抒情", "subject": "literature", "evidence_sources": ["literature_poetry_analysis.md"]},
+    {"source": "英语时态", "relation": "包含", "target": "一般现在时", "subject": "english", "evidence_sources": ["english_grammar_tenses.docx"]},
+    {"source": "英语时态", "relation": "包含", "target": "一般过去时", "subject": "english", "evidence_sources": ["english_grammar_tenses.docx"]},
+    {"source": "英语时态", "relation": "包含", "target": "一般将来时", "subject": "english", "evidence_sources": ["english_grammar_tenses.docx"]},
+    {"source": "英语时态", "relation": "包含", "target": "现在进行时", "subject": "english", "evidence_sources": ["english_grammar_tenses.docx"]},
+    {"source": "元素周期表", "relation": "结构", "target": "周期", "subject": "chemistry", "evidence_sources": ["chemistry_periodic_table.md"]},
+    {"source": "元素周期表", "relation": "结构", "target": "族", "subject": "chemistry", "evidence_sources": ["chemistry_periodic_table.md"]},
+    {"source": "细胞", "relation": "组成部分", "target": "细胞膜", "subject": "biology", "evidence_sources": ["biology_cell_structure.docx"]},
+    {"source": "细胞", "relation": "组成部分", "target": "线粒体", "subject": "biology", "evidence_sources": ["biology_cell_structure.docx"]},
+    {"source": "细胞", "relation": "组成部分", "target": "叶绿体", "subject": "biology", "evidence_sources": ["biology_cell_structure.docx"]},
+    {"source": "气候带", "relation": "包含", "target": "热带", "subject": "geography", "evidence_sources": ["geography_climate_zones.md"]},
+    {"source": "气候带", "relation": "包含", "target": "温带", "subject": "geography", "evidence_sources": ["geography_climate_zones.md"]},
+    {"source": "气候带", "relation": "包含", "target": "寒带", "subject": "geography", "evidence_sources": ["geography_climate_zones.md"]},
+    {"source": "中国古代史", "relation": "重要王朝", "target": "秦朝", "subject": "history", "evidence_sources": ["history_ancient_china.md"]},
+    {"source": "中国古代史", "relation": "重要王朝", "target": "汉朝", "subject": "history", "evidence_sources": ["history_ancient_china.md"]},
+    {"source": "秦朝", "relation": "制度", "target": "郡县制", "subject": "history", "evidence_sources": ["history_ancient_china.md"]},
+    {"source": "心理健康", "relation": "常见挑战", "target": "压力", "subject": "psychology", "evidence_sources": ["xinli.md"]},
+    {"source": "压力", "relation": "可能引发", "target": "焦虑", "subject": "psychology", "evidence_sources": ["xinli.md"]},
+    {"source": "心理健康", "relation": "改善方式", "target": "自我调节", "subject": "psychology", "evidence_sources": ["xinli.md"]},
+    {"source": "Python", "relation": "常用语法", "target": "列表推导式", "subject": "computer_science", "evidence_sources": ["cs_python_basics.md"]},
+    {"source": "列表推导式", "relation": "建立在", "target": "循环", "subject": "computer_science", "evidence_sources": ["cs_python_basics.md"]}
+  ]
+}

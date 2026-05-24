@@ -27,6 +27,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
+
 copy .env.example .env   # 填入 OPENAI_API_KEY 与 OPENAI_API_BASE（中转站）
 python scripts/create_static_samples.py   # 无需 pip，生成 PDF/Word 样本
 python scripts/self_test_minimal.py       # 结构自测

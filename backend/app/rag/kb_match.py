@@ -1,11 +1,10 @@
-"""判断检索结果是否与用户问题真正匹配（用于分流：走知识库 or 走大模型）。"""
 import re
+from typing import Any
 
 _EN_RE = re.compile(r"[a-zA-Z]{2,}")
 
 
 def _tokens(text: str) -> set[str]:
-    """中文 2~4 字 n-gram + 英文单词，避免整句被当成一个词。"""
     text = (text or "").strip().lower()
     tokens: set[str] = set()
     for w in _EN_RE.findall(text):
@@ -34,7 +33,18 @@ def keyword_overlap(question: str, content: str) -> float:
     return min(1.0, len(hit) / max(min(len(q), 24), 1))
 
 
-def is_chunk_relevant_to_question(question: str, content: str, distance: float | None = None) -> bool:
+def is_chunk_relevant_to_question(
+    question: str,
+    content: str,
+    distance: float | None = None,
+    metadata: dict[str, Any] | None = None,
+    matched_concepts: list[str] | None = None,
+) -> bool:
+    metadata = metadata or {}
+    concepts = [str(item).strip() for item in metadata.get("concepts") or [] if str(item).strip()]
+    aliases = [str(item).strip() for item in metadata.get("aliases") or [] if str(item).strip()]
+    concept_text = " ".join([*concepts, *aliases])
+
     q = _tokens(question)
     c = _tokens(content)
     hit = q & c
@@ -44,7 +54,12 @@ def is_chunk_relevant_to_question(question: str, content: str, distance: float |
         return True
     if keyword_overlap(question, content) >= 0.15:
         return True
-    # 向量非常接近且有一定字面重叠
+    if concept_text and keyword_overlap(question, concept_text) >= 0.12:
+        return True
+    if matched_concepts and set(matched_concepts) & set(concepts):
+        return True
+    if metadata.get("file_type") == "graph" and matched_concepts:
+        return True
     if distance is not None and distance < 0.55 and len(hit) >= 2:
         return True
     return False
