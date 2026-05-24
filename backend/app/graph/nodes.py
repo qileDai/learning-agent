@@ -1,3 +1,14 @@
+"""回答图节点实现。
+
+调用关系：
+1. 用户问题进入图状态后，先由 retrieve_node 调用 hybrid_retrieve
+2. hybrid_retrieve 返回候选文档和图谱结果后，retrieve_node 过滤并压缩上下文
+3. generate_answer_node 使用选中的 chunk + graph_context 生成最终回答
+4. 如果知识库未命中，则 generate_answer_llm_node 直接走大模型回答
+
+这个模块连接了“检索层”和“生成层”，是 RAG 在线问答最核心的编排节点。
+"""
+
 import re
 import uuid
 
@@ -20,6 +31,7 @@ _GREETING_RE = re.compile(
 
 
 def is_greeting(text: str) -> bool:
+    """判断是否为寒暄类输入。"""
     t = text.strip()
     if not t or len(t) > 24:
         return False
@@ -27,6 +39,7 @@ def is_greeting(text: str) -> bool:
 
 
 def get_llm() -> ChatOpenAI:
+    """返回统一 LLM 实例。"""
     return ChatOpenAI(
         model=settings.openai_model,
         openai_api_key=settings.openai_api_key or "dummy",
@@ -36,6 +49,7 @@ def get_llm() -> ChatOpenAI:
 
 
 def _doc_to_chunk(doc: Document, index: int) -> RetrievedChunk:
+    """把检索文档转换为图状态中的 chunk 结构。"""
     meta = doc.metadata or {}
     return RetrievedChunk(
         id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{meta.get('source', '')}-{index}-{doc.page_content[:80]}")),
@@ -52,6 +66,7 @@ def _doc_to_chunk(doc: Document, index: int) -> RetrievedChunk:
 
 
 def _question_from_state(state: AgentState) -> str:
+    """优先从状态中提取问题，没有则回退到最后一条消息。"""
     question = state.get("question") or ""
     if not question and state.get("messages"):
         last = state["messages"][-1]
@@ -60,6 +75,7 @@ def _question_from_state(state: AgentState) -> str:
 
 
 def _default_validation() -> dict:
+    """生成默认回答校验结果。"""
     return {
         "grounded": False,
         "grounding_score": 0.0,
@@ -69,6 +85,7 @@ def _default_validation() -> dict:
 
 
 def _graph_message(graph_result: dict) -> str:
+    """根据图谱检索结果生成提示消息。"""
     matched = [item.get("name", "") for item in graph_result.get("matched_concepts", []) if item.get("name")]
     related = [item for item in graph_result.get("related_concepts", []) if item]
     summary = dict(graph_result.get("retrieval_summary") or {})
@@ -90,6 +107,7 @@ def _graph_message(graph_result: dict) -> str:
 
 
 def greeting_node(state: AgentState) -> dict:
+    """处理寒暄类问题，直接返回轻量回答。"""
     question = _question_from_state(state)
     llm = get_llm()
     response = llm.invoke(
@@ -131,6 +149,11 @@ def greeting_node(state: AgentState) -> dict:
 
 
 def retrieve_node(state: AgentState) -> dict:
+    """执行知识库检索节点。
+
+    这里会把 hybrid_retrieve 的结果再次做相关性过滤和 token 压缩，
+    最终留下给生成节点真正使用的 chunk。
+    """
     question = _question_from_state(state)
     documents, graph_result = hybrid_retrieve(question)
     matched_concepts = [item.get("name", "") for item in graph_result.get("matched_concepts", []) if item.get("name")]
@@ -192,6 +215,7 @@ def retrieve_node(state: AgentState) -> dict:
 
 
 def generate_answer_llm_node(state: AgentState) -> dict:
+    """知识库未命中时直接调用大模型生成回答。"""
     question = state.get("question", "") or _question_from_state(state)
     llm = get_llm()
     response = llm.invoke(
@@ -213,6 +237,7 @@ def generate_answer_llm_node(state: AgentState) -> dict:
 
 
 def generate_answer_node(state: AgentState) -> dict:
+    """基于选中的知识片段生成最终答案。"""
     question = state.get("question", "")
     chunks = state.get("retrieved_chunks", [])
     selected_ids = state.get("selected_chunk_ids") or []
@@ -236,11 +261,14 @@ def generate_answer_node(state: AgentState) -> dict:
         context_header += f"[章节: {chunk['chapter']}]"
     if concepts:
         context_header += f"[概念: {concepts}]"
+
+    # 最终 prompt 只带一段主 chunk，保证引用边界清晰、token 成本可控。
     chunk_text = truncate_by_budget(chunk["content"], settings.retrieval_chunk_budget_tokens)
     user = f"用户问题：{question}\n\n知识库参考资料（仅此一段）：\n{context_header}\n{chunk_text}"
     if graph_context and chunk.get("file_type") != "graph":
         user += f"\n\n图谱补充关系：\n{graph_context}"
     user += "\n\n请给出具体、可直接用于学习的回答。"
+
     llm = get_llm()
     response = llm.invoke([SystemMessage(content=ANSWER_SYSTEM), HumanMessage(content=user)])
     answer = response.content if hasattr(response, "content") else str(response)

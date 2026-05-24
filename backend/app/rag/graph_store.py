@@ -1,3 +1,14 @@
+"""知识图谱存储与图谱检索模块。
+
+调用关系：
+1. ingest.py -> build_graph_index：离线构建图谱
+2. retrieval_optimizer.py -> load_graph_index：查询扩展时读取图谱概念
+3. hybrid_retriever.py -> search_graph：在线检索时先走图谱召回
+4. 图谱后端支持 JSON fallback 和 Neo4j，两者对外暴露同一个 search_graph 接口
+
+这个模块的目标是把图谱从“静态数据”升级成真正参与召回和排序的检索通道。
+"""
+
 import json
 import re
 from pathlib import Path
@@ -13,6 +24,7 @@ _GRAPH_FILE = _GRAPH_DIR / "graph.json"
 
 
 def _dedup_strings(items: list[str]) -> list[str]:
+    """对字符串列表去重并保留顺序。"""
     seen: set[str] = set()
     result: list[str] = []
     for item in items:
@@ -25,6 +37,7 @@ def _dedup_strings(items: list[str]) -> list[str]:
 
 
 def _dedup_edges(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """对图谱关系边去重。"""
     seen: set[tuple[str, str, str]] = set()
     result: list[dict[str, Any]] = []
     for edge in edges:
@@ -49,10 +62,12 @@ def _dedup_edges(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _concept_aliases(name: str, meta: dict[str, Any]) -> list[str]:
+    """拼接概念本名和别名集合。"""
     return _dedup_strings([name, *(meta.get("aliases") or [])])
 
 
 def _build_graph_payload(documents: list[Document]) -> dict[str, Any]:
+    """基于知识文档和元数据注册表构建图谱载荷。"""
     registry = load_metadata_registry()
     registry_sources = registry.get("sources", {})
     registry_concepts = registry.get("concepts", {})
@@ -134,35 +149,45 @@ def _build_graph_payload(documents: list[Document]) -> dict[str, Any]:
 
 
 def _use_neo4j() -> bool:
+    """判断是否配置为 Neo4j 后端。"""
     return settings.graph_store_backend.strip().casefold() == "neo4j"
 
 
 def _neo4j_ready() -> bool:
+    """判断 Neo4j 连接参数是否齐全。"""
     return bool(settings.neo4j_uri and settings.neo4j_user and settings.neo4j_password)
 
 
 def active_graph_backend() -> str:
+    """返回当前生效的图谱后端。"""
     return "neo4j" if _use_neo4j() and _neo4j_ready() else "json"
 
 
 def _get_neo4j_driver():
+    """创建 Neo4j Driver。"""
     from neo4j import GraphDatabase
 
     return GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password))
 
 
 def _graph_fallback() -> dict[str, Any]:
+    """读取本地图谱 JSON，作为统一回退路径。"""
     if not _GRAPH_FILE.exists():
         return {"concepts": {}, "sources": {}, "relations": [], "stats": {"concepts": 0, "sources": 0, "relations": 0}}
     return json.loads(_GRAPH_FILE.read_text(encoding="utf-8"))
 
 
 def _persist_graph_json(graph: dict[str, Any]) -> None:
+    """把图谱持久化为本地 JSON。"""
     _GRAPH_DIR.mkdir(parents=True, exist_ok=True)
     _GRAPH_FILE.write_text(json.dumps(graph, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _sync_graph_to_neo4j(graph: dict[str, Any]) -> None:
+    """把图谱同步到 Neo4j。
+
+    离线构建时会把 Source、Concept、Relation 三类结构写入图数据库。
+    """
     if active_graph_backend() != "neo4j":
         return
     try:
@@ -225,6 +250,7 @@ def _sync_graph_to_neo4j(graph: dict[str, Any]) -> None:
 
 
 def _load_graph_from_neo4j() -> dict[str, Any]:
+    """从 Neo4j 反查当前图谱。"""
     if active_graph_backend() != "neo4j":
         return _graph_fallback()
     try:
@@ -325,6 +351,7 @@ def _load_graph_from_neo4j() -> dict[str, Any]:
 
 
 def build_graph_index(documents: list[Document]) -> dict[str, Any]:
+    """统一构建图谱，并同步 JSON / Neo4j。"""
     graph = _build_graph_payload(documents)
     _persist_graph_json(graph)
     _sync_graph_to_neo4j(graph)
@@ -332,6 +359,7 @@ def build_graph_index(documents: list[Document]) -> dict[str, Any]:
 
 
 def load_graph_index() -> dict[str, Any]:
+    """读取图谱，优先读取当前生效后端。"""
     graph = _load_graph_from_neo4j() if active_graph_backend() == "neo4j" else _graph_fallback()
     if graph.get("concepts") or graph.get("sources") or graph.get("relations"):
         return graph
@@ -339,6 +367,7 @@ def load_graph_index() -> dict[str, Any]:
 
 
 def graph_overview(limit: int = 12) -> dict[str, Any]:
+    """返回图谱概览，用于 API 展示和调试。"""
     graph = load_graph_index()
     concepts = list(graph.get("concepts", {}).values())[:limit]
     sources = list(graph.get("sources", {}).values())[:limit]
@@ -352,6 +381,7 @@ def graph_overview(limit: int = 12) -> dict[str, Any]:
 
 
 def _concept_match_score(question: str, concept: str, aliases: list[str]) -> float:
+    """根据问题和概念/别名的匹配程度打分。"""
     text = (question or "").casefold()
     score = 0.0
     for alias in aliases:
@@ -375,6 +405,7 @@ def _build_graph_document(
     dominant_subject: str,
     backend: str,
 ) -> list[Document]:
+    """把图谱结果整理成一个特殊的 graph document，供后续生成阶段直接使用。"""
     if not matched_names:
         return []
     lines = [f"问题涉及概念：{'、'.join(matched_names)}。"]
@@ -403,12 +434,20 @@ def _build_graph_document(
 
 
 def _question_terms(question: str) -> list[str]:
+    """从问题中抽取可用于图谱检索的关键词项。"""
     tokens = re.findall(r"[\u4e00-\u9fffA-Za-z0-9_]{2,}", question or "")
     tokens = [token.casefold() for token in tokens if len(token.strip()) >= 2]
     return _dedup_strings(tokens)[:10]
 
 
 def _search_graph_json(question: str, limit_sources: int = 4, limit_relations: int = 8) -> dict[str, Any]:
+    """JSON 图谱回退检索。
+
+    逻辑：
+    - 先匹配概念
+    - 再找相关关系
+    - 最后给资料来源打分
+    """
     graph = load_graph_index()
     concepts = graph.get("concepts", {})
     sources = graph.get("sources", {})
@@ -472,6 +511,14 @@ def _search_graph_json(question: str, limit_sources: int = 4, limit_relations: i
 
 
 def _search_graph_neo4j(question: str, limit_sources: int = 4, limit_relations: int = 8) -> dict[str, Any]:
+    """Neo4j 图谱检索。
+
+    调用顺序：
+    1. 先用 Cypher 匹配命中概念
+    2. 再扩展 RELATED 关系
+    3. 再回查 MENTIONED_IN 来源
+    4. 把图谱结果转成 graph document 参与后续混合检索
+    """
     terms = _question_terms(question)
     lower_question = (question or "").casefold()
     driver = _get_neo4j_driver()
@@ -594,6 +641,10 @@ def _search_graph_neo4j(question: str, limit_sources: int = 4, limit_relations: 
 
 
 def search_graph(question: str, limit_sources: int = 4, limit_relations: int = 8) -> dict[str, Any]:
+    """统一图谱检索入口。
+
+    对上层来说不需要区分 JSON 还是 Neo4j，只需要拿到统一结构的图谱检索结果。
+    """
     if active_graph_backend() == "neo4j":
         try:
             return _search_graph_neo4j(question, limit_sources=limit_sources, limit_relations=limit_relations)

@@ -4,8 +4,35 @@ from time import perf_counter
 from typing import Any
 
 from fastapi import Request, Response
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
+
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+
+    _PROMETHEUS_AVAILABLE = True
+except ModuleNotFoundError:
+    CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"
+    _PROMETHEUS_AVAILABLE = False
+
+    class _NoopMetric:
+        def labels(self, **_: Any):
+            return self
+
+        def inc(self, amount: float = 1.0) -> None:
+            return None
+
+        def observe(self, amount: float) -> None:
+            return None
+
+    def Counter(*args: Any, **kwargs: Any) -> _NoopMetric:
+        return _NoopMetric()
+
+    def Histogram(*args: Any, **kwargs: Any) -> _NoopMetric:
+        return _NoopMetric()
+
+    def generate_latest() -> bytes:
+        return b"# Prometheus client is not installed\n"
+
 
 HTTP_REQUESTS_TOTAL = Counter("education_agent_http_requests_total", "HTTP requests", ["method", "path", "status"])
 HTTP_REQUEST_LATENCY_SECONDS = Histogram("education_agent_http_request_latency_seconds", "HTTP request latency", ["method", "path"])
@@ -47,3 +74,7 @@ def record_answer_validation(validation: dict[str, Any]) -> None:
 
 def record_eval_run(mode: str) -> None:
     EVAL_RUN_TOTAL.labels(mode=mode).inc()
+
+
+def prometheus_available() -> bool:
+    return _PROMETHEUS_AVAILABLE

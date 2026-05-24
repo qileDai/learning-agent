@@ -1,3 +1,13 @@
+"""RAG 检索优化器。
+
+调用关系：
+1. hybrid_retriever.py -> expand_query / lexical_score / score_document_coverage / reciprocal_rank_fusion / diversify_documents
+2. graph/nodes.py -> compress_lines / truncate_by_budget / validate_answer_grounding
+3. hybrid_retriever.py -> get_cached_retrieval / save_cached_retrieval：做语义缓存
+
+这个模块不直接负责检索某个后端，而是承载查询理解、预算控制、缓存和评估等横向能力。
+"""
+
 import json
 import math
 import re
@@ -17,6 +27,7 @@ _COMPLEX_HINTS = ("区别", "对比", "为什么", "原因", "如何", "怎么",
 
 
 def text_tokens(text: str) -> list[str]:
+    """把文本切成英文 token 和中文 n-gram，用于轻量词法分析。"""
     raw = (text or "").strip().lower()
     tokens: list[str] = []
     tokens.extend(_TOKEN_RE.findall(raw))
@@ -30,6 +41,7 @@ def text_tokens(text: str) -> list[str]:
 
 
 def estimate_tokens(text: str) -> int:
+    """粗略估算 token 数，用于 prompt 预算控制。"""
     cleaned = (text or "").strip()
     if not cleaned:
         return 0
@@ -39,6 +51,7 @@ def estimate_tokens(text: str) -> int:
 
 
 def truncate_by_budget(text: str, max_tokens: int) -> str:
+    """把普通文本裁剪到 token 预算内。"""
     content = (text or "").strip()
     if estimate_tokens(content) <= max_tokens:
         return content
@@ -51,6 +64,7 @@ def truncate_by_budget(text: str, max_tokens: int) -> str:
 
 
 def compress_lines(text: str, max_tokens: int) -> str:
+    """按行压缩图谱上下文，尽量保留前面的高价值关系。"""
     lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
     kept: list[str] = []
     spent = 0
@@ -66,10 +80,12 @@ def compress_lines(text: str, max_tokens: int) -> str:
 
 
 def normalize_question(question: str) -> str:
+    """把问题归一化成 token 串，用于语义缓存相似度比较。"""
     return " ".join(text_tokens(question))
 
 
 def token_overlap_ratio(left: str, right: str) -> float:
+    """计算两个文本之间的 token 重叠率。"""
     left_tokens = set(text_tokens(left))
     right_tokens = set(text_tokens(right))
     if not left_tokens or not right_tokens:
@@ -78,6 +94,12 @@ def token_overlap_ratio(left: str, right: str) -> float:
 
 
 def classify_query(question: str) -> dict[str, Any]:
+    """按问题复杂度动态调整召回深度。
+
+    simple：默认问题
+    complex：需要更深召回
+    analysis：偏方案、架构、总结类问题，召回窗口最大
+    """
     text = (question or "").strip()
     route_type = "simple"
     matched_hints: list[str] = []
@@ -113,6 +135,10 @@ def classify_query(question: str) -> dict[str, Any]:
 
 
 def expand_query(question: str) -> dict[str, Any]:
+    """利用图谱中的概念和别名扩展查询。
+
+    这是混合检索真正开始之前的“查询理解”步骤。
+    """
     graph = load_graph_index()
     concepts = graph.get("concepts", {})
     lower_question = (question or "").casefold()
@@ -164,6 +190,10 @@ def expand_query(question: str) -> dict[str, Any]:
 
 
 def lexical_score(question: str, content: str, metadata: dict[str, Any] | None = None) -> float:
+    """计算轻量词法分。
+
+    当 Elasticsearch 不可用时，它是本地词法召回的核心评分函数。
+    """
     metadata = metadata or {}
     query_tokens = text_tokens(question)
     if not query_tokens:
@@ -203,6 +233,7 @@ def lexical_score(question: str, content: str, metadata: dict[str, Any] | None =
 
 
 def score_document_coverage(question: str, content: str, metadata: dict[str, Any] | None = None, matched_concepts: list[str] | None = None) -> float:
+    """评估文档对当前问题的覆盖程度。"""
     metadata = metadata or {}
     base = lexical_score(question, content, metadata)
     overlap = token_overlap_ratio(question, content)
@@ -214,6 +245,7 @@ def score_document_coverage(question: str, content: str, metadata: dict[str, Any
 
 
 def reciprocal_rank_fusion(rank_positions: dict[str, int], constant: int = 60) -> float:
+    """对多路召回结果做 RRF 融合，避免某单一路径主导排序。"""
     score = 0.0
     for position in rank_positions.values():
         if position < 0:
@@ -223,6 +255,7 @@ def reciprocal_rank_fusion(rank_positions: dict[str, int], constant: int = 60) -
 
 
 def diversify_documents(documents: list[Document], final_k: int, max_per_source: int) -> list[Document]:
+    """控制最终候选的多样性，避免单一 source 占位过多。"""
     picked: list[Document] = []
     per_source: Counter[str] = Counter()
     seen_signatures: set[tuple[str, str]] = set()
@@ -243,10 +276,12 @@ def diversify_documents(documents: list[Document], final_k: int, max_per_source:
 
 
 def _cache_path() -> Path:
+    """返回语义缓存文件路径。"""
     return Path(settings.retrieval_cache_file)
 
 
 def _load_retrieval_cache() -> list[dict[str, Any]]:
+    """读取缓存文件。"""
     path = _cache_path()
     if not settings.retrieval_cache_enabled or not path.exists():
         return []
@@ -258,6 +293,7 @@ def _load_retrieval_cache() -> list[dict[str, Any]]:
 
 
 def _save_retrieval_cache(entries: list[dict[str, Any]]) -> None:
+    """落盘缓存文件。"""
     if not settings.retrieval_cache_enabled:
         return
     path = _cache_path()
@@ -266,14 +302,22 @@ def _save_retrieval_cache(entries: list[dict[str, Any]]) -> None:
 
 
 def _serialize_documents(documents: list[Document]) -> list[dict[str, Any]]:
+    """把 Document 列表转为 JSON 可持久化结构。"""
     return [{"page_content": doc.page_content, "metadata": dict(doc.metadata or {})} for doc in documents]
 
 
 def _deserialize_documents(items: list[dict[str, Any]]) -> list[Document]:
+    """把缓存里的 JSON 结构恢复成 Document。"""
     return [Document(page_content=str(item.get("page_content") or ""), metadata=dict(item.get("metadata") or {})) for item in items]
 
 
 def get_cached_retrieval(question: str, route_type: str) -> tuple[list[Document], dict[str, Any]] | None:
+    """查找语义缓存。
+
+    命中逻辑：
+    - route_type 一致
+    - 归一化问题相似度超过阈值
+    """
     if not settings.retrieval_cache_enabled:
         return None
     normalized = normalize_question(question)
@@ -306,6 +350,7 @@ def get_cached_retrieval(question: str, route_type: str) -> tuple[list[Document]
 
 
 def save_cached_retrieval(question: str, route_type: str, documents: list[Document], graph_result: dict[str, Any]) -> None:
+    """把本次检索结果写入语义缓存。"""
     if not settings.retrieval_cache_enabled or not documents:
         return
     normalized = normalize_question(question)
@@ -332,6 +377,7 @@ def save_cached_retrieval(question: str, route_type: str, documents: list[Docume
 
 
 def validate_answer_grounding(question: str, answer: str, references: list[str], concepts: list[str] | None = None) -> dict[str, Any]:
+    """校验回答是否真正建立在证据片段上。"""
     answer_text = (answer or "").strip()
     reference_text = "\n".join(item.strip() for item in references if item and item.strip())
     concept_text = " ".join(concepts or [])
