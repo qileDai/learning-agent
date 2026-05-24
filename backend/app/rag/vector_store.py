@@ -1,8 +1,8 @@
-"""轻量本地向量索引：numpy 持久化，无 Chroma/FAISS 等重型依赖。"""
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from langchain_core.documents import Document
@@ -39,7 +39,7 @@ def _normalize(matrix: np.ndarray) -> np.ndarray:
     return matrix / norms
 
 
-def _load_index() -> tuple[list[dict], np.ndarray | None]:
+def _load_index() -> tuple[list[dict[str, Any]], np.ndarray | None]:
     if not _DOCS_FILE.exists() or not _EMBEDDINGS_FILE.exists():
         return [], None
     docs = json.loads(_DOCS_FILE.read_text(encoding="utf-8"))
@@ -47,6 +47,11 @@ def _load_index() -> tuple[list[dict], np.ndarray | None]:
     if not docs or matrix.size == 0:
         return [], None
     return docs, matrix
+
+
+def load_index_documents() -> list[Document]:
+    docs, _ = _load_index()
+    return [Document(page_content=item["page_content"], metadata=item.get("metadata", {})) for item in docs]
 
 
 def _save_index(docs: list[dict], matrix: np.ndarray | None) -> None:

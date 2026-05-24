@@ -82,6 +82,14 @@ def _chunks_from_interrupt(snapshot: Any) -> list | None:
     return None
 
 
+def _graph_summary(state: dict) -> dict:
+    return {
+        "matched_concepts": state.get("graph_matched_concepts") or [],
+        "related_concepts": state.get("graph_related_concepts") or [],
+        "has_graph_context": bool(state.get("graph_context")),
+    }
+
+
 @router.post("/chat/start")
 def chat_start(req: ChatStartRequest):
     graph = get_graph()
@@ -99,15 +107,21 @@ def chat_start(req: ChatStartRequest):
         "graph_context": "",
         "graph_matched_concepts": [],
         "graph_related_concepts": [],
+        "retrieval_summary": {
+            "query_expansions": [],
+            "route_subjects": [],
+            "graph_documents": 0,
+            "vector_candidates": 0,
+            "lexical_candidates": 0,
+            "final_candidates": 0,
+            "max_per_source": 0,
+            "chunk_budget_tokens": 0,
+            "graph_budget_tokens": 0,
+        },
     }
     result = graph.invoke(initial, config)
     snapshot = graph.get_state(config)
     state = _graph_state_dict(result, snapshot)
-    graph_summary = {
-        "matched_concepts": state.get("graph_matched_concepts") or [],
-        "related_concepts": state.get("graph_related_concepts") or [],
-        "has_graph_context": bool(state.get("graph_context")),
-    }
 
     if _is_paused(snapshot, result):
         chunks = (_chunks_from_interrupt(snapshot) or state.get("retrieved_chunks") or [])[:TOP_K]
@@ -118,7 +132,8 @@ def chat_start(req: ChatStartRequest):
             "kb_hit": True,
             "retrieved_chunks": chunks,
             "selection_mode": "single",
-            "graph_summary": graph_summary,
+            "graph_summary": _graph_summary(state),
+            "retrieval_summary": state.get("retrieval_summary") or {},
             "message": f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。",
         }
     answer = state.get("final_answer") or ""
@@ -129,12 +144,9 @@ def chat_start(req: ChatStartRequest):
         "mode": mode,
         "kb_hit": bool(state.get("kb_hit")),
         "answer": answer,
-        "graph_summary": graph_summary,
-        "message": (
-            None
-            if mode in {"kb", "graph_kb"}
-            else "知识库中无直接相关条目，以下由 AI 根据您的问题生成"
-        ),
+        "graph_summary": _graph_summary(state),
+        "retrieval_summary": state.get("retrieval_summary") or {},
+        "message": None if mode in {"kb", "graph_kb"} else "知识库中无直接相关条目，以下由 AI 根据您的问题生成",
     }
 
 
@@ -148,10 +160,7 @@ def chat_resume(req: ChatResumeRequest):
     chunk_ids = req.selected_chunk_ids[:1] if req.selected_chunk_ids else []
     if not chunk_ids:
         raise HTTPException(400, "请单选一条知识片段")
-    result = graph.invoke(
-        Command(resume={"selected_chunk_ids": chunk_ids}),
-        config,
-    )
+    result = graph.invoke(Command(resume={"selected_chunk_ids": chunk_ids}), config)
     after = graph.get_state(config)
     state = _graph_state_dict(result, after)
     answer = state.get("final_answer") or ""
@@ -162,11 +171,8 @@ def chat_resume(req: ChatResumeRequest):
         "mode": state.get("answer_mode") or "kb",
         "kb_hit": True,
         "answer": answer,
-        "graph_summary": {
-            "matched_concepts": state.get("graph_matched_concepts") or [],
-            "related_concepts": state.get("graph_related_concepts") or [],
-            "has_graph_context": bool(state.get("graph_context")),
-        },
+        "graph_summary": _graph_summary(state),
+        "retrieval_summary": state.get("retrieval_summary") or {},
         "message": None if answer else "未生成回答",
         "messages": [m.content for m in messages if hasattr(m, "content")],
     }
@@ -183,11 +189,8 @@ def chat_state(thread_id: str):
         "next": state.next,
         "retrieved_chunks": values.get("retrieved_chunks", []),
         "final_answer": values.get("final_answer"),
-        "graph_summary": {
-            "matched_concepts": values.get("graph_matched_concepts", []),
-            "related_concepts": values.get("graph_related_concepts", []),
-            "has_graph_context": bool(values.get("graph_context")),
-        },
+        "graph_summary": _graph_summary(values),
+        "retrieval_summary": values.get("retrieval_summary", {}),
     }
 
 

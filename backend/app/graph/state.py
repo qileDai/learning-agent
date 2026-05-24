@@ -13,6 +13,19 @@ class RetrievedChunk(TypedDict):
     chapter: str | None
     retrieval_mode: str | None
     concepts: list[str]
+    rank_score: float | None
+
+
+class RetrievalSummary(TypedDict):
+    query_expansions: list[str]
+    route_subjects: list[str]
+    graph_documents: int
+    vector_candidates: int
+    lexical_candidates: int
+    final_candidates: int
+    max_per_source: int
+    chunk_budget_tokens: int
+    graph_budget_tokens: int
 
 
 class AgentState(TypedDict):
@@ -27,3 +40,4 @@ class AgentState(TypedDict):
     graph_context: str
     graph_matched_concepts: list[str]
     graph_related_concepts: list[str]
+    retrieval_summary: RetrievalSummary

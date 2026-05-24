@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     knowledge_dir: str = str(BACKEND_ROOT / "data" / "knowledge")
     knowledge_metadata_file: str = str(BACKEND_ROOT / "data" / "knowledge_metadata.json")
 
+    retrieval_vector_k: int = 18
+    retrieval_lexical_k: int = 16
+    retrieval_final_k: int = 8
+    retrieval_max_per_source: int = 2
+    retrieval_chunk_budget_tokens: int = 260
+    retrieval_graph_budget_tokens: int = 120
+
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000"
