@@ -321,6 +321,114 @@
       "error_message": null,
       "created_at": "2026-05-25T06:39:00Z",
       "updated_at": "2026-05-25T06:39:37Z"
+    },
+    "dcdfea6a-8532-4052-bdb8-66b2f921678b": {
+      "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "python匿名函数"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "在 Python 中，匿名函数是通过 `lambda` 关键字定义的。它的基本语法是：\n\n```python\nlambda 参数: 表达式\n```\n\n例如，下面的代码定义了一个匿名函数，用于计算一个数的平方：\n\n```python\nsquare = lambda x: x ** 2\nprint(square(5))  # 输出 25\n```\n\n匿名函数常用于需要一个简单函数的场合，比如在 `map()`、`filter()` 和 `sorted()` 等函数中。",
+        "retrieval_summary": {
+          "query_expansions": [
+            "Python 编程"
+          ],
+          "route_subjects": [
+            "computer_science"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": true,
+          "cache_similarity": 1.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": true,
+          "grounding_score": 0.3444,
+          "reference_overlap": 0.0339,
+          "question_overlap": 1.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T08:18:01Z",
+      "updated_at": "2026-05-25T08:18:52Z"
+    },
+    "52a7ed04-4487-4e10-8e8f-780cb4da8ea9": {
+      "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "python"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "Python 是一种广泛使用的高级编程语言，具有简单易读的语法。它支持多种编程范式，包括面向对象、命令式和函数式编程。\n\n列表推导式是 Python 中的一种简洁语法，用于从现有列表生成新列表。其基本语法为：\n\n```python\nnew_list = [expression for item in iterable if condition]\n```\n\n例如，生成一个包含 0 到 9 的平方的列表，可以使用以下代码：\n\n```python\nsquares = [x**2 for x in range(10)]\n```\n\n这段代码会生成一个列表 `[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]`。列表推导式使得代码更加简洁和易于理解。",
+        "retrieval_summary": {
+          "query_expansions": [
+            "Python 编程"
+          ],
+          "route_subjects": [
+            "computer_science"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": true,
+          "cache_similarity": 1.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": true,
+          "grounding_score": 0.4271,
+          "reference_overlap": 0.0932,
+          "question_overlap": 1.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T08:24:32Z",
+      "updated_at": "2026-05-25T08:25:13Z"
     }
   },
   "events": {
@@ -1648,6 +1756,508 @@
           "retry_count": 0
         },
         "created_at": "2026-05-25T06:39:37Z"
+      }
+    ],
+    "dcdfea6a-8532-4052-bdb8-66b2f921678b": [
+      {
+        "event_id": "3ca210e856c24d1e97eb054020ac832e",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "f1697cd6a66a47b1ab6ddaf10352e9a6",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "4aae865606564f779d0e5e19afd522b1",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "python匿名函数"
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "7ca48a1956714771aa348fcc6116dfcb",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "0a8c52722f7d43e9a152b6fd711f5eb1",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 3,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "df6c416f42bf4e12b97cc8ad620b8045",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "34ea3e0f81654ab7ae6fd1aaed1dd486",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 3 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T08:18:01Z"
+      },
+      {
+        "event_id": "6a6b67599dbf410992d82d5ad31ab639",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T08:18:42Z"
+      },
+      {
+        "event_id": "bfae61070e4249c28b226be4e5ab253e",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T08:18:42Z"
+      },
+      {
+        "event_id": "3a4ca15eb39b4da19e9821f9262e662d",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "2f1aa047-7a17-5af5-b622-71b0b8497c36"
+          ]
+        },
+        "created_at": "2026-05-25T08:18:42Z"
+      },
+      {
+        "event_id": "5699da02e62e460d9edf54e0e66e0acd",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:18:42Z"
+      },
+      {
+        "event_id": "f19bcd3bd8474b1bae438262c5e11bca",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_completed",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "已基于知识库生成回答",
+        "data": {
+          "answer_mode": "graph_kb",
+          "grounding_score": 0.3444,
+          "selected_source": "graph://knowledge-map"
+        },
+        "created_at": "2026-05-25T08:18:52Z"
+      },
+      {
+        "event_id": "08e73c03e1bf4a8bba7caa4e9a588b82",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:18:52Z"
+      },
+      {
+        "event_id": "4270099e599c4e46976ea67b2e4ffc4c",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "回答已通过 critic 校验",
+        "data": {
+          "step": 1,
+          "grounding_score": 0.3444
+        },
+        "created_at": "2026-05-25T08:18:52Z"
+      },
+      {
+        "event_id": "702f49d8132f41398bde3a8dedef3d5b",
+        "task_id": "dcdfea6a-8532-4052-bdb8-66b2f921678b",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "在 Python 中，匿名函数是通过 `lambda` 关键字定义的。它的基本语法是：\n\n```python\nlambda 参数: 表达式\n```\n\n例如，下面的代码定义了一个匿名函数，用于计算一个数的平方：\n\n```python\nsquare = lambda x: x ** 2\nprint(square(5))  # 输出 25\n```\n\n匿名函数常用于需要一个简单函数的场合，比如在 `map()`、`filter()` 和 `sorted()` 等函数中。",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": true,
+            "grounding_score": 0.3444,
+            "reference_overlap": 0.0339,
+            "question_overlap": 1.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T08:18:52Z"
+      }
+    ],
+    "52a7ed04-4487-4e10-8e8f-780cb4da8ea9": [
+      {
+        "event_id": "3f4cfc1fbb8b4e90a74757f47735ac22",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "aea5bf06532d4ac59442ec7e8b3525cc",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "f8f23c5829364eceb40e3bd7a501d6ac",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "python"
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "eeffaa28ef5c4a438ff6f54837543157",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "b16db6d3aadd4d4aae653b23aef540e0",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 3,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "ecd4993e9b534196942b254e306af25a",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "264c0cd6bc024ac1a82dddaf74507e7b",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 3 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T08:24:32Z"
+      },
+      {
+        "event_id": "629bec83ece84e7488f75a7d21bed840",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T08:25:00Z"
+      },
+      {
+        "event_id": "037c3f74bec0469782c26c025455bf1a",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T08:25:00Z"
+      },
+      {
+        "event_id": "92d537569f9b4245994d011b4c0c92cd",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "2f1aa047-7a17-5af5-b622-71b0b8497c36"
+          ]
+        },
+        "created_at": "2026-05-25T08:25:00Z"
+      },
+      {
+        "event_id": "132ea23f20c34cac8a8743473c919989",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:25:00Z"
+      },
+      {
+        "event_id": "f8f87da2cd87497fb94e0c49c83a22dd",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_completed",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "已基于知识库生成回答",
+        "data": {
+          "answer_mode": "graph_kb",
+          "grounding_score": 0.4271,
+          "selected_source": "graph://knowledge-map"
+        },
+        "created_at": "2026-05-25T08:25:13Z"
+      },
+      {
+        "event_id": "4f1348dffbc64ceea937996e8ccba0b3",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T08:25:13Z"
+      },
+      {
+        "event_id": "10f4d991d5324a079360352e7e5917c9",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "回答已通过 critic 校验",
+        "data": {
+          "step": 1,
+          "grounding_score": 0.4271
+        },
+        "created_at": "2026-05-25T08:25:13Z"
+      },
+      {
+        "event_id": "b2c58cdc58f24e58a74390b9be7fb10c",
+        "task_id": "52a7ed04-4487-4e10-8e8f-780cb4da8ea9",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "Python 是一种广泛使用的高级编程语言，具有简单易读的语法。它支持多种编程范式，包括面向对象、命令式和函数式编程。\n\n列表推导式是 Python 中的一种简洁语法，用于从现有列表生成新列表。其基本语法为：\n\n```python\nnew_list = [expression for item in iterable if condition]\n```\n\n例如，生成一个包含 0 到 9 的平方的列表，可以使用以下代码：\n\n```python\nsquares = [x**2 for x in range(10)]\n```\n\n这段代码会生成一个列表 `[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]`。列表推导式使得代码更加简洁和易于理解。",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": true,
+            "grounding_score": 0.4271,
+            "reference_overlap": 0.0932,
+            "question_overlap": 1.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T08:25:13Z"
       }
     ]
   }

@@ -27,8 +27,30 @@ export interface RetrievalSummary {
   lexical_candidates: number;
   final_candidates: number;
   max_per_source: number;
+  vector_k?: number;
+  lexical_k?: number;
+  final_k?: number;
+  rerank_window?: number;
   chunk_budget_tokens: number;
   graph_budget_tokens: number;
+  cache_hit?: boolean;
+  cache_similarity?: number;
+}
+
+export interface AnswerValidation {
+  grounded: boolean;
+  grounding_score: number;
+  reference_overlap: number;
+  question_overlap: number;
+}
+
+export interface ExecutionTrace {
+  node: string;
+  status: string;
+  message: string;
+  step: number;
+  elapsed_ms: number;
+  data: Record<string, unknown>;
 }
 
 export interface ChatStartResponse {
@@ -43,6 +65,8 @@ export interface ChatStartResponse {
   selection_mode?: "single";
   graph_summary?: GraphSummary;
   retrieval_summary?: RetrievalSummary;
+  answer_validation?: AnswerValidation;
+  execution_trace?: ExecutionTrace[];
 }
 
 export interface ChatResumeResponse {
@@ -55,6 +79,8 @@ export interface ChatResumeResponse {
   message?: string | null;
   graph_summary?: GraphSummary;
   retrieval_summary?: RetrievalSummary;
+  answer_validation?: AnswerValidation;
+  execution_trace?: ExecutionTrace[];
 }
 
 export interface ChatTaskResult {
@@ -64,6 +90,8 @@ export interface ChatTaskResult {
   loop_step?: number;
   retry_count?: number;
   message?: string;
+  retrieval_summary?: RetrievalSummary;
+  answer_validation?: AnswerValidation;
 }
 
 export interface ChatTask {
@@ -87,6 +115,8 @@ export interface ChatStateResponse {
   final_answer?: string;
   graph_summary?: GraphSummary;
   retrieval_summary?: RetrievalSummary;
+  answer_validation?: AnswerValidation;
+  execution_trace?: ExecutionTrace[];
   task?: ChatTask | null;
 }
 

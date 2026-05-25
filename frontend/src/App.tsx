@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   chatResume,
   chatStart,
@@ -8,10 +8,13 @@ import {
   getMediaJob,
   getPendingChatTasks,
   ingestKnowledge,
+  type AnswerValidation,
   type ChatStateResponse,
   type ChatTask,
+  type ExecutionTrace,
   type GraphSummary,
   type MediaJob,
+  type RetrievalSummary,
   type RetrievedChunk,
 } from "./api";
 import DailySchedulePanel from "./DailySchedule";
@@ -20,6 +23,38 @@ import "./App.css";
 type Message = { role: "user" | "assistant"; content: string };
 
 type VideoMode = "text-to-video" | "image-to-video";
+
+const TRACE_NODE_LABEL: Record<string, string> = {
+  greeting: "寒暄识别",
+  planner: "问题规划",
+  retrieve: "知识检索",
+  human_select: "人工选择",
+  generate_answer: "基于知识生成",
+  generate_llm: "大模型直答",
+  critic: "结果评估",
+};
+
+const TRACE_STATUS_LABEL: Record<string, string> = {
+  running: "执行中",
+  completed: "已完成",
+  awaiting_input: "等待选择",
+  failed: "失败",
+  timeout: "超时",
+  cancelled: "已取消",
+};
+
+const TRACE_DATA_LABEL: Record<string, string> = {
+  loop_step: "轮次",
+  max_steps: "最大轮次",
+  plan_question: "规划问题",
+  kb_hit: "命中知识库",
+  candidates: "候选数",
+  route_type: "路由策略",
+  selected_chunk_ids: "已选片段",
+  answer_mode: "回答模式",
+  grounding_score: "可信分",
+  retry_count: "重试次数",
+};
 
 export default function App() {
   const [question, setQuestion] = useState("");
@@ -31,6 +66,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
   const [graphSummary, setGraphSummary] = useState<GraphSummary | null>(null);
+  const [retrievalSummary, setRetrievalSummary] = useState<RetrievalSummary | null>(null);
+  const [answerValidation, setAnswerValidation] = useState<AnswerValidation | null>(null);
+  const [executionTrace, setExecutionTrace] = useState<ExecutionTrace[]>([]);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [pendingChats, setPendingChats] = useState<ChatTask[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null);
@@ -66,6 +105,63 @@ export default function App() {
     });
   };
 
+  const formatPercent = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  const formatDecimal = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return value.toFixed(3);
+  };
+
+  const formatBoolean = (value: boolean) => (value ? "是" : "否");
+
+  const normalizeTraceValue = (value: unknown): string => {
+    if (value == null) return "";
+    if (Array.isArray(value)) return value.map((item) => normalizeTraceValue(item)).filter(Boolean).join("、");
+    if (typeof value === "boolean") return formatBoolean(value);
+    if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(3);
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+
+  const formatTraceDetails = (trace: ExecutionTrace) => {
+    const entries = Object.entries(trace.data || {}).filter(([, value]) => {
+      if (value == null || value === "") return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return true;
+    });
+    if (!entries.length) return "";
+    return entries
+      .slice(0, 4)
+      .map(([key, value]) => `${TRACE_DATA_LABEL[key] ?? key}：${normalizeTraceValue(value)}`)
+      .join(" · ");
+  };
+
+  const applyDiagnostics = useCallback(
+    (payload: {
+      graphSummary?: GraphSummary | null;
+      retrievalSummary?: RetrievalSummary | null;
+      answerValidation?: AnswerValidation | null;
+      executionTrace?: ExecutionTrace[] | null;
+    }) => {
+      setGraphSummary(payload.graphSummary ?? null);
+      setRetrievalSummary(payload.retrievalSummary ?? null);
+      setAnswerValidation(payload.answerValidation ?? null);
+      setExecutionTrace(payload.executionTrace ?? []);
+    },
+    []
+  );
+
+  const clearDiagnostics = useCallback(() => {
+    setGraphSummary(null);
+    setRetrievalSummary(null);
+    setAnswerValidation(null);
+    setExecutionTrace([]);
+    setDiagnosticsOpen(false);
+  }, []);
+
   const refreshPendingChats = useCallback(async () => {
     setPendingLoading(true);
     try {
@@ -93,7 +189,12 @@ export default function App() {
     const restoredQuestion = state.task?.payload?.question || "已恢复中断任务";
     const restoredChunks = state.retrieved_chunks ?? [];
     setThreadId(restoredThreadId);
-    setGraphSummary(state.graph_summary ?? null);
+    applyDiagnostics({
+      graphSummary: state.graph_summary ?? null,
+      retrievalSummary: state.retrieval_summary ?? state.task?.result?.retrieval_summary ?? null,
+      answerValidation: state.answer_validation ?? state.task?.result?.answer_validation ?? null,
+      executionTrace: state.execution_trace ?? [],
+    });
     setChunks(restoredChunks);
     setSelectedId(restoredChunks[0]?.id ?? null);
     setQuestion("");
@@ -158,13 +259,19 @@ export default function App() {
     const q = question.trim();
     if (!q || phase === "loading") return;
     setError(null);
+    clearDiagnostics();
     setPhase("loading");
     setMessages((m) => [...m, { role: "user", content: q }]);
     setQuestion("");
     try {
       const res = await chatStart(q);
       setThreadId(res.thread_id);
-      setGraphSummary(res.graph_summary ?? null);
+      applyDiagnostics({
+        graphSummary: res.graph_summary ?? null,
+        retrievalSummary: res.retrieval_summary ?? null,
+        answerValidation: res.answer_validation ?? null,
+        executionTrace: res.execution_trace ?? [],
+      });
       const graphHint = formatGraphSummary(res.graph_summary);
       const retrievedChunks = res.retrieved_chunks;
       if (res.status === "awaiting_selection" && res.kb_hit && retrievedChunks?.length) {
@@ -221,7 +328,12 @@ export default function App() {
       setPhase("done");
       setChunks([]);
       setSelectedId(null);
-      setGraphSummary(res.graph_summary ?? null);
+      applyDiagnostics({
+        graphSummary: res.graph_summary ?? null,
+        retrievalSummary: res.retrieval_summary ?? null,
+        answerValidation: res.answer_validation ?? null,
+        executionTrace: res.execution_trace ?? [],
+      });
       const graphHint = formatGraphSummary(res.graph_summary);
       setMessages((m) => [
         ...m,
@@ -285,6 +397,19 @@ export default function App() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [mediaJob]);
+
+  const hasDiagnostics = Boolean(retrievalSummary || answerValidation || executionTrace.length > 0);
+
+  const traceItems = useMemo(
+    () =>
+      executionTrace.map((trace, index) => ({
+        key: `${trace.node}-${trace.step}-${index}`,
+        nodeLabel: TRACE_NODE_LABEL[trace.node] ?? trace.node,
+        statusLabel: TRACE_STATUS_LABEL[trace.status] ?? trace.status,
+        details: formatTraceDetails(trace),
+      })),
+    [executionTrace]
+  );
 
   return (
     <div className="layout">
@@ -620,6 +745,132 @@ export default function App() {
           </button>
         </footer>
       </main>
+
+      {hasDiagnostics ? (
+        <button
+          type="button"
+          className="diagnostics-trigger"
+          onClick={() => setDiagnosticsOpen(true)}
+        >
+          查看运行详情
+        </button>
+      ) : null}
+
+      {hasDiagnostics && diagnosticsOpen ? (
+        <div className="diagnostics-drawer__backdrop" onClick={() => setDiagnosticsOpen(false)}>
+          <aside
+            className="diagnostics-drawer"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="运行详情"
+          >
+            <div className="diagnostics__header diagnostics__header--drawer">
+              <div>
+                <h3>运行详情</h3>
+                <p>把评分结果和执行规划放在独立抽屉里，避免干扰主聊天界面。</p>
+              </div>
+              <button
+                type="button"
+                className="diagnostics-close"
+                onClick={() => setDiagnosticsOpen(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="diagnostics__grid diagnostics__grid--drawer">
+              <article className="diagnostics-card">
+                <h4>评分结果</h4>
+                <div className="score-grid">
+                  <div className="score-item">
+                    <span className="score-label">回答可信</span>
+                    <strong className={`score-value${answerValidation?.grounded ? " is-good" : ""}`}>
+                      {answerValidation ? formatBoolean(answerValidation.grounded) : "--"}
+                    </strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">Grounding Score</span>
+                    <strong className="score-value">{formatDecimal(answerValidation?.grounding_score)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">参考重叠度</span>
+                    <strong className="score-value">{formatPercent(answerValidation?.reference_overlap)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">问题覆盖度</span>
+                    <strong className="score-value">{formatPercent(answerValidation?.question_overlap)}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article className="diagnostics-card">
+                <h4>检索策略</h4>
+                <div className="metrics-grid">
+                  <div className="metric-item">
+                    <span>路由策略</span>
+                    <strong>{retrievalSummary?.route_type || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>图谱文档</span>
+                    <strong>{retrievalSummary?.graph_documents ?? "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>向量候选</span>
+                    <strong>{retrievalSummary?.vector_candidates ?? "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>关键词候选</span>
+                    <strong>{retrievalSummary?.lexical_candidates ?? "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>最终候选</span>
+                    <strong>{retrievalSummary?.final_candidates ?? "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>缓存命中</span>
+                    <strong>
+                      {typeof retrievalSummary?.cache_hit === "boolean" ? formatBoolean(retrievalSummary.cache_hit) : "--"}
+                    </strong>
+                  </div>
+                </div>
+                {retrievalSummary?.query_expansions?.length ? (
+                  <p className="diagnostics-text">查询扩展：{retrievalSummary.query_expansions.join("、")}</p>
+                ) : null}
+                {retrievalSummary?.route_subjects?.length ? (
+                  <p className="diagnostics-text">学科路由：{retrievalSummary.route_subjects.join("、")}</p>
+                ) : null}
+              </article>
+            </div>
+
+            <article className="diagnostics-card diagnostics-card--trace">
+              <div className="trace-head">
+                <h4>执行规划步骤</h4>
+                <span>{executionTrace.length ? `${executionTrace.length} 个节点` : "暂无执行轨迹"}</span>
+              </div>
+              {traceItems.length ? (
+                <div className="trace-list">
+                  {traceItems.map((item, index) => {
+                    const trace = executionTrace[index];
+                    return (
+                      <div key={item.key} className="trace-item">
+                        <div className="trace-item__top">
+                          <span className="trace-step">Step {trace.step || index + 1}</span>
+                          <span className={`trace-status trace-status--${trace.status}`}>{item.statusLabel}</span>
+                        </div>
+                        <div className="trace-node">{item.nodeLabel}</div>
+                        <p className="trace-message">{trace.message}</p>
+                        {item.details ? <p className="trace-details">{item.details}</p> : null}
+                        <span className="trace-time">耗时 {trace.elapsed_ms} ms</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="diagnostics-empty">当前调用还没有返回执行轨迹。</p>
+              )}
+            </article>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }
