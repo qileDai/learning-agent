@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     retrieval_cache_max_entries: int = 200
     retrieval_answer_grounding_threshold: float = 0.18
 
+    task_store_file: str = str(BACKEND_ROOT / "data" / "runtime" / "tasks.json")
+    task_event_limit: int = 200
+    graph_max_steps: int = 2
+    graph_task_timeout_seconds: int = 180
+    media_job_timeout_seconds: int = 1800
+    media_job_max_refresh_attempts: int = 30
+
     image_generation_provider: str = "demo"
     image_generation_api_url: str = ""
     image_generation_api_key: str = ""

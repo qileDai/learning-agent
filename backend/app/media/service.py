@@ -4,13 +4,14 @@ import json
 import mimetypes
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from app.config import settings
+from app.task_store import append_task_event, get_task, upsert_task
 
 _OUTPUT_DIR = Path(settings.media_output_dir)
 _JOB_FILE = _OUTPUT_DIR / "jobs.json"
@@ -42,6 +43,10 @@ def _now_iso() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
+def _deadline_iso(seconds: int) -> str:
+    return (datetime.utcnow() + timedelta(seconds=max(1, seconds))).replace(microsecond=0).isoformat() + "Z"
+
+
 def _load_jobs() -> dict[str, Any]:
     _ensure_output_dir()
     if not _JOB_FILE.exists():
@@ -57,11 +62,67 @@ def _save_jobs(jobs: dict[str, Any]) -> None:
     _JOB_FILE.write_text(json.dumps(jobs, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _task_status_from_job(job: dict[str, Any]) -> str:
+    status = str(job.get("status") or "pending").lower()
+    if status in {"completed", "mock_ready"}:
+        return "completed"
+    if status in {"failed", "timeout"}:
+        return status
+    if status == "cancelled":
+        return "cancelled"
+    return "running"
+
+
+def _sync_task_from_job(job: dict[str, Any]) -> None:
+    task_id = str(job.get("job_id") or "").strip()
+    if not task_id:
+        return
+    payload = {
+        "kind": job.get("kind"),
+        "prompt": job.get("prompt"),
+        "style": job.get("style"),
+        "aspect_ratio": job.get("aspect_ratio"),
+        "mode": job.get("mode"),
+        "duration_seconds": job.get("duration_seconds"),
+        "source_image_url": job.get("source_image_url"),
+        "provider": job.get("provider"),
+    }
+    result = {
+        "status": job.get("status"),
+        "preview_url": job.get("preview_url"),
+        "image_url": job.get("image_url"),
+        "video_url": job.get("video_url"),
+        "poster_url": job.get("poster_url"),
+        "provider_model": job.get("provider_model"),
+        "message": job.get("message"),
+        "refresh_attempts": job.get("refresh_attempts"),
+    }
+    status = _task_status_from_job(job)
+    previous = get_task(task_id)
+    upsert_task(
+        task_id,
+        kind="media",
+        title=f"{job.get('kind') or 'media'} 素材生成任务",
+        status=status,
+        payload=payload,
+        result=result,
+        source_id=task_id,
+        error_code="MEDIA_JOB_FAILED" if status in {"failed", "timeout"} else None,
+        error_message=str(job.get("message") or "") if status in {"failed", "timeout"} else None,
+    )
+    previous_status = str(previous.get("status") or "") if previous else ""
+    if previous is None:
+        append_task_event(task_id, "task_started", message="媒体任务已创建", status=status, data=result)
+    elif previous_status != status:
+        append_task_event(task_id, f"media_{status}", message=str(job.get("message") or f"媒体任务状态更新：{status}"), status=status, data=result)
+
+
 def _upsert_job(job: dict[str, Any]) -> dict[str, Any]:
     jobs = _load_jobs()
     job["updated_at"] = _now_iso()
     jobs[job["job_id"]] = job
     _save_jobs(jobs)
+    _sync_task_from_job(job)
     return job
 
 
@@ -176,6 +237,9 @@ def _job_base(kind: str, prompt: str, provider: str, status: str = "completed") 
         "status": status,
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
+        "refresh_attempts": 0,
+        "max_refresh_attempts": settings.media_job_max_refresh_attempts,
+        "deadline_at": _deadline_iso(settings.media_job_timeout_seconds),
     }
 
 
@@ -502,10 +566,30 @@ async def create_video_job(prompt: str, mode: str, duration_seconds: int, source
     return _demo_video_job(prompt, mode, duration_seconds, source_image_url)
 
 
+def _job_expired(job: dict[str, Any]) -> bool:
+    attempts = int(job.get("refresh_attempts") or 0)
+    max_attempts = int(job.get("max_refresh_attempts") or settings.media_job_max_refresh_attempts)
+    if attempts >= max_attempts:
+        return True
+    deadline = str(job.get("deadline_at") or "").strip()
+    if not deadline:
+        return False
+    try:
+        deadline_dt = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return datetime.utcnow() > deadline_dt.replace(tzinfo=None)
+
+
 async def _refresh_runway_job(job: dict[str, Any]) -> dict[str, Any]:
     provider_job_id = str(job.get("provider_job_id") or "").strip()
     if not provider_job_id:
         return job
+    job["refresh_attempts"] = int(job.get("refresh_attempts") or 0) + 1
+    if _job_expired(job):
+        job["status"] = "timeout"
+        job["message"] = "Runway 任务超过最大轮询次数或执行时间，已标记超时。"
+        return _upsert_job(job)
     task = await _call_json_api(
         f"{settings.runway_api_base_url.rstrip('/')}/v1/tasks/{provider_job_id}",
         None,
@@ -543,6 +627,11 @@ async def _refresh_generic_video_job(job: dict[str, Any]) -> dict[str, Any]:
     provider_job_id = str(job.get("provider_job_id") or "").strip()
     if not status_url:
         return job
+    job["refresh_attempts"] = int(job.get("refresh_attempts") or 0) + 1
+    if _job_expired(job):
+        job["status"] = "timeout"
+        job["message"] = "视频任务超过最大轮询次数或执行时间，已标记超时。"
+        return _upsert_job(job)
     if "{job_id}" in status_url:
         status_url = status_url.replace("{job_id}", provider_job_id)
     data = await _call_json_api(
@@ -569,8 +658,15 @@ async def _refresh_generic_video_job(job: dict[str, Any]) -> dict[str, Any]:
 
 async def refresh_media_job(job: dict[str, Any]) -> dict[str, Any]:
     provider = str(job.get("provider") or "demo").strip().lower()
-    if provider == "demo" or job.get("status") in {"completed", "failed", "mock_ready"}:
-        return job
-    if provider == "runway":
-        return await _refresh_runway_job(job)
-    return await _refresh_generic_video_job(job)
+    if job.get("status") in {"completed", "failed", "mock_ready", "timeout", "cancelled"}:
+        return _upsert_job(job)
+    if provider == "demo":
+        return _upsert_job(job)
+    try:
+        if provider == "runway":
+            return await _refresh_runway_job(job)
+        return await _refresh_generic_video_job(job)
+    except Exception as exc:
+        job["status"] = "failed"
+        job["message"] = f"媒体任务刷新失败：{exc}"
+        return _upsert_job(job)

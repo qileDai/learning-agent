@@ -80,6 +80,88 @@
 - 检索摘要输出
 - 评测接口输出 Hit@K / MRR / grounding 结果
 
+### 3.2 代码级模块调用关系
+
+```mermaid
+flowchart TD
+    A[用户问题] --> B[retrieve_node\ngraph/nodes.py]
+    B --> C[hybrid_retrieve\nrag/hybrid_retriever.py]
+
+    C --> D[expand_query\nrag/retrieval_optimizer.py]
+    D --> E[classify_query\n路由 simple complex analysis]
+    D --> F[load_graph_index\n读取图谱概念和别名]
+
+    C --> G[get_cached_retrieval\n语义缓存]
+    G -->|命中| H[直接返回检索结果]
+    G -->|未命中| I[search_graph\nrag/graph_store.py]
+
+    I --> I1[Neo4j Cypher 检索]
+    I --> I2[JSON 图谱回退]
+    I --> I3[生成 graph document]
+
+    C --> J[similarity_search_with_scores\nrag/vector_store.py]
+    J --> J1[Milvus 向量检索]
+    J --> J2[本地向量索引回退]
+
+    C --> K[_build_lexical_candidates]
+    K --> K1[Elasticsearch 关键词召回]
+    K --> K2[本地 lexical_score 回退]
+
+    I3 --> L[候选集合合并]
+    J --> L
+    K --> L
+
+    L --> M[多因子融合打分]
+    M --> N[RRF 融合排序]
+    N --> O[diversify_documents\n来源去重与多样性控制]
+    O --> P[final_docs]
+    P --> Q[save_cached_retrieval]
+
+    P --> R[retrieve_node 二次相关性过滤]
+    R --> S[truncate_by_budget\ncompress_lines]
+    S --> T[retrieved_chunks + graph_context]
+
+    T --> U[generate_answer_node]
+    U --> V[选择 1 条主证据]
+    V --> W[LLM 生成答案]
+    W --> X[validate_answer_grounding]
+    X --> Y[最终回答]
+
+    Z[ingest_knowledge_base] --> Z1[load_directory]
+    Z1 --> Z2[ingest_documents]
+    Z2 --> Z3[本地向量索引]
+    Z2 --> Z4[Milvus]
+    Z2 --> Z5[Elasticsearch]
+    Z1 --> Z6[build_graph_index]
+    Z6 --> Z7[JSON 图谱]
+    Z6 --> Z8[Neo4j]
+```
+
+### 3.3 模块职责与调用边界
+
+#### 离线入库链路
+- `ingest_knowledge_base -> load_directory -> ingest_documents -> build_graph_index`
+- `ingest_documents` 同时负责 chunk 切分、Embedding 生成、本地向量索引持久化，以及同步写入 Milvus 和 Elasticsearch
+- `build_graph_index` 同时负责生成本地 JSON 图谱，并在启用 Neo4j 时同步图数据库
+
+#### 在线检索链路
+- `retrieve_node` 是在线问答进入检索层的统一入口
+- `hybrid_retrieve` 是三路召回的编排层，先做查询扩展和缓存判断，再分别调图谱、向量、关键词三条通道
+- `search_graph` 负责输出命中概念、关联关系、优先来源，以及一个可直接参与生成的 `graph document`
+- `similarity_search_with_scores` 负责语义召回，优先 Milvus，失败后回退本地向量索引
+- `_build_lexical_candidates` 负责关键词召回，优先 Elasticsearch，失败后回退本地词法打分
+
+#### 在线生成链路
+- `retrieve_node` 对混合检索结果再做相关性过滤和 token 裁剪
+- `generate_answer_node` 只保留 1 条主证据片段，把图谱关系作为补充上下文传给模型
+- `validate_answer_grounding` 对答案和证据做一致性校验，避免回答脱离引用依据
+
+#### 核心设计原则
+- 图谱负责概念关系和来源先验，不替代向量与关键词召回
+- 向量负责语义相似，关键词负责术语精确，三者通过融合排序统一决策
+- 生成阶段只保留少量高质量证据，核心目标是降低 token 成本并保持回答边界清晰
+- 所有企业级组件都带回退路径，确保系统在依赖不完整时仍能稳定运行
+
 ---
 
 ## 4. 核心模块与作用说明

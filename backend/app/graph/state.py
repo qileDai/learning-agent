@@ -1,3 +1,4 @@
+import operator
 from typing import Annotated, TypedDict
 
 from langgraph.graph.message import add_messages
@@ -42,13 +43,25 @@ class AnswerValidation(TypedDict):
     question_overlap: float
 
 
+class ExecutionTrace(TypedDict):
+    node: str
+    status: str
+    message: str
+    step: int
+    elapsed_ms: int
+    data: dict
+
+
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
+    execution_trace: Annotated[list[ExecutionTrace], operator.add]
     question: str
+    plan_question: str
     retrieved_chunks: list[RetrievedChunk]
     selected_chunk_ids: list[str]
     final_answer: str
     thread_id: str
+    task_id: str
     kb_hit: bool
     answer_mode: str
     graph_context: str
@@ -56,3 +69,9 @@ class AgentState(TypedDict):
     graph_related_concepts: list[str]
     retrieval_summary: RetrievalSummary
     answer_validation: AnswerValidation
+    loop_step: int
+    max_steps: int
+    critic_decision: str
+    critic_reason: str
+    retry_count: int
+    task_status: str

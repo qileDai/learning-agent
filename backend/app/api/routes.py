@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
+from app.config import settings
 from app.graph.prompts import TOP_K
 from app.graph.workflow import get_graph
 from app.media.service import create_image_job, create_video_job, get_media_job
@@ -13,6 +14,18 @@ from app.rag.graph_store import graph_overview, search_graph
 from app.rag.ingest import ingest_knowledge_base
 from app.scheduler.daily_push import generate_daily_plan, get_push_history
 from app.scheduler.daily_schedule import get_today_schedule
+from app.task_store import (
+    awaiting_input_task,
+    cancel_task,
+    complete_task,
+    fail_task,
+    get_task,
+    get_task_events,
+    list_tasks,
+    mark_task_status,
+    start_task,
+    timeout_task,
+)
 
 router = APIRouter()
 
@@ -182,15 +195,14 @@ def _default_answer_validation() -> dict:
     }
 
 
-@router.post("/chat/start")
-def chat_start(req: ChatStartRequest):
-    graph = get_graph()
-    thread_id = req.thread_id or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
-    initial = {
-        "question": req.question,
+def _initial_chat_state(question: str, thread_id: str, task_id: str) -> dict[str, Any]:
+    return {
+        "question": question,
+        "plan_question": question,
         "messages": [],
+        "execution_trace": [],
         "thread_id": thread_id,
+        "task_id": task_id,
         "kb_hit": False,
         "answer_mode": "",
         "retrieved_chunks": [],
@@ -201,43 +213,100 @@ def chat_start(req: ChatStartRequest):
         "graph_related_concepts": [],
         "retrieval_summary": _default_retrieval_summary(),
         "answer_validation": _default_answer_validation(),
+        "loop_step": 0,
+        "max_steps": settings.graph_max_steps,
+        "critic_decision": "",
+        "critic_reason": "",
+        "retry_count": 0,
+        "task_status": "running",
     }
-    result = graph.invoke(initial, config)
-    snapshot = graph.get_state(config)
-    state = _graph_state_dict(result, snapshot)
 
-    if _is_paused(snapshot, result):
-        chunks = (_chunks_from_interrupt(snapshot) or state.get("retrieved_chunks") or [])[:TOP_K]
+
+def _sync_chat_task(task_id: str, state: dict, *, paused: bool, message: str | None = None) -> None:
+    result = {
+        "answer_mode": state.get("answer_mode") or "llm",
+        "kb_hit": bool(state.get("kb_hit")),
+        "final_answer": state.get("final_answer") or "",
+        "retrieval_summary": state.get("retrieval_summary") or {},
+        "answer_validation": state.get("answer_validation") or _default_answer_validation(),
+        "loop_step": int(state.get("loop_step") or 0),
+        "retry_count": int(state.get("retry_count") or 0),
+    }
+    status = str(state.get("task_status") or "running")
+    if paused:
+        awaiting_input_task(task_id, message=message or "等待用户选择知识片段", current_step=result["loop_step"], result=result)
+        return
+    if status == "timeout":
+        timeout_task(task_id, error_message=state.get("critic_reason") or "任务超时", current_step=result["loop_step"])
+        return
+    if status == "failed":
+        fail_task(task_id, error_code="GRAPH_EXECUTION_FAILED", error_message=state.get("critic_reason") or "图执行失败", current_step=result["loop_step"])
+        return
+    complete_task(task_id, result=result, current_step=result["loop_step"])
+
+
+@router.post("/chat/start")
+def chat_start(req: ChatStartRequest):
+    graph = get_graph()
+    thread_id = req.thread_id or str(uuid.uuid4())
+    task_id = thread_id
+    start_task(
+        task_id,
+        kind="chat",
+        title="知识库问答任务",
+        payload={"question": req.question},
+        thread_id=thread_id,
+        max_steps=settings.graph_max_steps,
+    )
+    config = {"configurable": {"thread_id": thread_id}}
+    initial = _initial_chat_state(req.question, thread_id, task_id)
+    try:
+        result = graph.invoke(initial, config)
+        snapshot = graph.get_state(config)
+        state = _graph_state_dict(result, snapshot)
+        if _is_paused(snapshot, result):
+            chunks = (_chunks_from_interrupt(snapshot) or state.get("retrieved_chunks") or [])[:TOP_K]
+            _sync_chat_task(task_id, state, paused=True, message=f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。")
+            return {
+                "task_id": task_id,
+                "thread_id": thread_id,
+                "status": "awaiting_selection",
+                "mode": state.get("answer_mode") or "kb",
+                "kb_hit": True,
+                "retrieved_chunks": chunks,
+                "selection_mode": "single",
+                "graph_summary": _graph_summary(state),
+                "retrieval_summary": state.get("retrieval_summary") or {},
+                "answer_validation": state.get("answer_validation") or _default_answer_validation(),
+                "execution_trace": state.get("execution_trace") or [],
+                "message": f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。",
+            }
+        _sync_chat_task(task_id, state, paused=False)
+        answer = state.get("final_answer") or ""
+        mode = state.get("answer_mode") or "llm"
         return {
+            "task_id": task_id,
             "thread_id": thread_id,
-            "status": "awaiting_selection",
-            "mode": state.get("answer_mode") or "kb",
-            "kb_hit": True,
-            "retrieved_chunks": chunks,
-            "selection_mode": "single",
+            "status": "completed",
+            "mode": mode,
+            "kb_hit": bool(state.get("kb_hit")),
+            "answer": answer,
             "graph_summary": _graph_summary(state),
             "retrieval_summary": state.get("retrieval_summary") or {},
             "answer_validation": state.get("answer_validation") or _default_answer_validation(),
-            "message": f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。",
+            "execution_trace": state.get("execution_trace") or [],
+            "message": None if mode in {"kb", "graph_kb", "greeting"} else "知识库中无直接相关条目，以下由 AI 根据您的问题生成",
         }
-    answer = state.get("final_answer") or ""
-    mode = state.get("answer_mode") or "llm"
-    return {
-        "thread_id": thread_id,
-        "status": "completed",
-        "mode": mode,
-        "kb_hit": bool(state.get("kb_hit")),
-        "answer": answer,
-        "graph_summary": _graph_summary(state),
-        "retrieval_summary": state.get("retrieval_summary") or {},
-        "answer_validation": state.get("answer_validation") or _default_answer_validation(),
-        "message": None if mode in {"kb", "graph_kb"} else "知识库中无直接相关条目，以下由 AI 根据您的问题生成",
-    }
+    except Exception as exc:
+        fail_task(task_id, error_code="CHAT_START_FAILED", error_message=str(exc))
+        raise HTTPException(500, f"chat start failed: {exc}") from exc
 
 
 @router.post("/chat/resume")
 def chat_resume(req: ChatResumeRequest):
     graph = get_graph()
+    task_id = req.thread_id
+    mark_task_status(task_id, status="running", message="继续执行知识库问答任务")
     config = {"configurable": {"thread_id": req.thread_id}}
     snapshot = graph.get_state(config)
     if not _is_paused(snapshot, None):
@@ -245,23 +314,30 @@ def chat_resume(req: ChatResumeRequest):
     chunk_ids = req.selected_chunk_ids[:1] if req.selected_chunk_ids else []
     if not chunk_ids:
         raise HTTPException(400, "请单选一条知识片段")
-    result = graph.invoke(Command(resume={"selected_chunk_ids": chunk_ids}), config)
-    after = graph.get_state(config)
-    state = _graph_state_dict(result, after)
-    answer = state.get("final_answer") or ""
-    messages = state.get("messages") or []
-    return {
-        "thread_id": req.thread_id,
-        "status": "completed",
-        "mode": state.get("answer_mode") or "kb",
-        "kb_hit": True,
-        "answer": answer,
-        "graph_summary": _graph_summary(state),
-        "retrieval_summary": state.get("retrieval_summary") or {},
-        "answer_validation": state.get("answer_validation") or _default_answer_validation(),
-        "message": None if answer else "未生成回答",
-        "messages": [m.content for m in messages if hasattr(m, "content")],
-    }
+    try:
+        result = graph.invoke(Command(resume={"selected_chunk_ids": chunk_ids}), config)
+        after = graph.get_state(config)
+        state = _graph_state_dict(result, after)
+        _sync_chat_task(task_id, state, paused=False)
+        answer = state.get("final_answer") or ""
+        messages = state.get("messages") or []
+        return {
+            "task_id": task_id,
+            "thread_id": req.thread_id,
+            "status": "completed",
+            "mode": state.get("answer_mode") or "kb",
+            "kb_hit": bool(state.get("kb_hit")),
+            "answer": answer,
+            "graph_summary": _graph_summary(state),
+            "retrieval_summary": state.get("retrieval_summary") or {},
+            "answer_validation": state.get("answer_validation") or _default_answer_validation(),
+            "execution_trace": state.get("execution_trace") or [],
+            "message": None if answer else "未生成回答",
+            "messages": [m.content for m in messages if hasattr(m, "content")],
+        }
+    except Exception as exc:
+        fail_task(task_id, error_code="CHAT_RESUME_FAILED", error_message=str(exc))
+        raise HTTPException(500, f"chat resume failed: {exc}") from exc
 
 
 @router.get("/chat/state/{thread_id}")
@@ -270,7 +346,9 @@ def chat_state(thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     state = graph.get_state(config)
     values = state.values or {}
+    task = get_task(thread_id)
     return {
+        "task_id": thread_id,
         "thread_id": thread_id,
         "next": state.next,
         "retrieved_chunks": values.get("retrieved_chunks", []),
@@ -278,7 +356,69 @@ def chat_state(thread_id: str):
         "graph_summary": _graph_summary(values),
         "retrieval_summary": values.get("retrieval_summary", {}),
         "answer_validation": values.get("answer_validation", _default_answer_validation()),
+        "execution_trace": values.get("execution_trace", []),
+        "task": task,
     }
+
+
+@router.get("/tasks")
+def task_list(kind: str | None = None, status: str | None = None, limit: int = Query(default=50, ge=1, le=200)):
+    return {"items": list_tasks(kind=kind, status=status, limit=limit)}
+
+
+@router.get("/tasks/{task_id}")
+def task_detail(task_id: str):
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return {"task": task}
+
+
+@router.get("/tasks/{task_id}/events")
+def task_events(task_id: str, limit: int = Query(default=100, ge=1, le=500)):
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return {"task_id": task_id, "events": get_task_events(task_id, limit=limit)}
+
+
+@router.post("/tasks/{task_id}/cancel")
+def task_cancel(task_id: str):
+    task = cancel_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return {"task": task}
+
+
+@router.post("/tasks/{task_id}/retry")
+async def task_retry(task_id: str):
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    kind = str(task.get("kind") or "")
+    payload = dict(task.get("payload") or {})
+    if kind == "chat":
+        question = str(payload.get("question") or "").strip()
+        if not question:
+            raise HTTPException(400, "Chat task missing question payload")
+        return chat_start(ChatStartRequest(question=question))
+    if kind == "media":
+        media_kind = str(payload.get("kind") or "image")
+        if media_kind == "image":
+            return await create_image_job(
+                str(payload.get("prompt") or ""),
+                str(payload.get("style") or "教育海报"),
+                str(payload.get("aspect_ratio") or "16:9"),
+            )
+        return await create_video_job(
+            str(payload.get("prompt") or ""),
+            str(payload.get("mode") or "text-to-video"),
+            int(payload.get("duration_seconds") or 6),
+            payload.get("source_image_url"),
+        )
+    if kind == "scheduler":
+        return generate_daily_plan(force=True)
+    raise HTTPException(400, f"Task kind not retryable: {kind}")
 
 
 @router.get("/daily-push/latest")
@@ -298,4 +438,4 @@ def daily_push_history():
 
 @router.post("/daily-push/generate")
 def daily_push_generate():
-    return generate_daily_plan()
+    return generate_daily_plan(force=True)

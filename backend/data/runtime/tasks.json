@@ -1,0 +1,562 @@
+{
+  "tasks": {
+    "fdc58121-010b-4dd3-98ff-eac989b25cf9": {
+      "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "failed",
+      "payload": {
+        "question": "牛二"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "",
+        "retrieval_summary": {
+          "query_expansions": [
+            "牛顿第二定律",
+            "F=ma"
+          ],
+          "route_subjects": [
+            "physics"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": true,
+          "cache_similarity": 1.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": false,
+          "grounding_score": 0.0,
+          "reference_overlap": 0.0,
+          "question_overlap": 0.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": "CHAT_RESUME_FAILED",
+      "error_message": "Connection error.",
+      "created_at": "2026-05-25T06:00:27Z",
+      "updated_at": "2026-05-25T06:00:38Z"
+    },
+    "f68139dc-fe28-47f5-b585-95088cbefbdf": {
+      "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "牛二"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "牛顿第二定律是物理学中的一个基本定律，其表达式为 F = ma，其中 F 代表作用在物体上的净力，m 是物体的质量，a 是物体的加速度。这个定律说明了物体的加速度与作用在其上的净力成正比，与物体的质量成反比。\n\n具体来说：\n1. **定义**：牛顿第二定律描述了力、质量和加速度之间的关系。\n2. **公式**：F = ma。\n3. **要点**：如果已知物体的质量和所受的净力，可以通过此公式计算出物体的加速度。\n\n牛顿第二定律是建立在牛顿第一定律的基础上的，后者指出物体在没有外力作用时将保持静止或匀速直线运动。",
+        "retrieval_summary": {
+          "query_expansions": [
+            "牛顿第二定律",
+            "F=ma"
+          ],
+          "route_subjects": [
+            "physics"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": true,
+          "cache_similarity": 1.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": true,
+          "grounding_score": 0.3221,
+          "reference_overlap": 0.2251,
+          "question_overlap": 0.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T06:00:55Z",
+      "updated_at": "2026-05-25T06:01:05Z"
+    }
+  },
+  "events": {
+    "fdc58121-010b-4dd3-98ff-eac989b25cf9": [
+      {
+        "event_id": "b733f8bfcf864549ab2c8096986c69cc",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "99d0fd306a314d5a8d40908f583b2f98",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "2a9492bf761c42d3829e612bbcabe53d",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "牛二"
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "3b0c11971bf84db4b0bd2e6d4b887bbf",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "9b02aa8556534f79adc88abde1743efe",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 2,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "2ebe354b3aab40b3af3c7ee6c7e55318",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 2
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "954ec0849bc5458786b6e0f7f2640451",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 2 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "牛顿第二定律",
+              "F=ma"
+            ],
+            "route_subjects": [
+              "physics"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:00:27Z"
+      },
+      {
+        "event_id": "0bda28aed39f4eba8f65a95da5fb616d",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:00:35Z"
+      },
+      {
+        "event_id": "bd43eaf5a7b945e39a2b7475f1899f22",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 2
+        },
+        "created_at": "2026-05-25T06:00:35Z"
+      },
+      {
+        "event_id": "6d4c68283ec945ff9360b7fa87743ad2",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "3820cb4a-fc50-5cf2-8a5f-783c30de933a"
+          ]
+        },
+        "created_at": "2026-05-25T06:00:35Z"
+      },
+      {
+        "event_id": "a97051ca742d4807850cc27418661a66",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:00:35Z"
+      },
+      {
+        "event_id": "648e8ff9046a4953b7c36cea783fe6ab",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "node_failed",
+        "node": "generate_answer",
+        "status": "failed",
+        "message": "节点执行失败：generate_answer",
+        "data": {
+          "error": "Connection error.",
+          "step": 1,
+          "elapsed_ms": 2288
+        },
+        "created_at": "2026-05-25T06:00:38Z"
+      },
+      {
+        "event_id": "2e02afbfb7c84edf842d75c152454207",
+        "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+        "type": "task_failed",
+        "node": null,
+        "status": "failed",
+        "message": "任务执行失败：Connection error.",
+        "data": {},
+        "created_at": "2026-05-25T06:00:38Z"
+      }
+    ],
+    "f68139dc-fe28-47f5-b585-95088cbefbdf": [
+      {
+        "event_id": "34c6c1ee1a5247759ff7de87e936c345",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "c4a5698a214246e0882075366f10eedb",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "9aebe072a5c348fe9001f73016f2c12f",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "牛二"
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "14ecf4dd8eab4764b2a5bbe6064edd99",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "925c3d7614d2419192ecb8f28683ec9b",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 2,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "77a2c28bf7d54afb82adfe084e2d4b20",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 2
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "3c5a1dd7ba8a484dbb5202a6e1f626c7",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 2 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "牛顿第二定律",
+              "F=ma"
+            ],
+            "route_subjects": [
+              "physics"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:00:55Z"
+      },
+      {
+        "event_id": "7ffc907ab589429f9e21895d1c829a59",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:00:58Z"
+      },
+      {
+        "event_id": "392cc65374c040d5a68e84be9be3438c",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 2
+        },
+        "created_at": "2026-05-25T06:00:58Z"
+      },
+      {
+        "event_id": "2113a65dafec4b3989f7549324a7172a",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "3820cb4a-fc50-5cf2-8a5f-783c30de933a"
+          ]
+        },
+        "created_at": "2026-05-25T06:00:58Z"
+      },
+      {
+        "event_id": "7fb373cfea10482d8bb735c1d5bdb23a",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:00:58Z"
+      },
+      {
+        "event_id": "e086d40e76504dfa911389c7d03bdbb9",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_completed",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "已基于知识库生成回答",
+        "data": {
+          "answer_mode": "graph_kb",
+          "grounding_score": 0.3221,
+          "selected_source": "graph://knowledge-map"
+        },
+        "created_at": "2026-05-25T06:01:05Z"
+      },
+      {
+        "event_id": "8aad55cc3e5d40048beba3db36720c2e",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:01:05Z"
+      },
+      {
+        "event_id": "8bb220b525f4425791b236c07e59c2f8",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "回答已通过 critic 校验",
+        "data": {
+          "step": 1,
+          "grounding_score": 0.3221
+        },
+        "created_at": "2026-05-25T06:01:05Z"
+      },
+      {
+        "event_id": "73d860a6cd654289af9447067ed0cb10",
+        "task_id": "f68139dc-fe28-47f5-b585-95088cbefbdf",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "牛顿第二定律是物理学中的一个基本定律，其表达式为 F = ma，其中 F 代表作用在物体上的净力，m 是物体的质量，a 是物体的加速度。这个定律说明了物体的加速度与作用在其上的净力成正比，与物体的质量成反比。\n\n具体来说：\n1. **定义**：牛顿第二定律描述了力、质量和加速度之间的关系。\n2. **公式**：F = ma。\n3. **要点**：如果已知物体的质量和所受的净力，可以通过此公式计算出物体的加速度。\n\n牛顿第二定律是建立在牛顿第一定律的基础上的，后者指出物体在没有外力作用时将保持静止或匀速直线运动。",
+          "retrieval_summary": {
+            "query_expansions": [
+              "牛顿第二定律",
+              "F=ma"
+            ],
+            "route_subjects": [
+              "physics"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": true,
+            "grounding_score": 0.3221,
+            "reference_overlap": 0.2251,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:01:05Z"
+      }
+    ]
+  }
+}
