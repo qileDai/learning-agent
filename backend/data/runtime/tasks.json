@@ -109,6 +109,218 @@
       "error_message": null,
       "created_at": "2026-05-25T06:00:55Z",
       "updated_at": "2026-05-25T06:01:05Z"
+    },
+    "69b6b8af-c31f-45ca-b029-900c5153f1c5": {
+      "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "python"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "Python 是一种高级编程语言，广泛用于各种应用程序开发。它的语法简洁易读，适合初学者和专业开发者。\n\n列表推导式是 Python 中的一种简洁的创建列表的方法。其基本语法为：\n\n```python\nnew_list = [expression for item in iterable if condition]\n```\n\n例如，创建一个包含 0 到 9 的平方的列表，可以使用列表推导式如下：\n\n```python\nsquares = [x**2 for x in range(10)]\n```\n\n这将生成列表 `[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]`。列表推导式使得代码更简洁且易于理解。",
+        "retrieval_summary": {
+          "query_expansions": [
+            "Python 编程"
+          ],
+          "route_subjects": [
+            "computer_science"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": false,
+          "cache_similarity": 0.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": true,
+          "grounding_score": 0.4271,
+          "reference_overlap": 0.0932,
+          "question_overlap": 1.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T06:03:06Z",
+      "updated_at": "2026-05-25T06:03:23Z"
+    },
+    "ffb53641-f00e-4e40-8d1a-68511e2cee0d": {
+      "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "awaiting_input",
+      "payload": {
+        "question": "python"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "",
+        "retrieval_summary": {
+          "query_expansions": [
+            "Python 编程"
+          ],
+          "route_subjects": [
+            "computer_science"
+          ],
+          "route_type": "simple",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 2,
+          "final_candidates": 9,
+          "max_per_source": 2,
+          "vector_k": 18,
+          "lexical_k": 16,
+          "final_k": 8,
+          "rerank_window": 15,
+          "cache_hit": true,
+          "cache_similarity": 1.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": false,
+          "grounding_score": 0.0,
+          "reference_overlap": 0.0,
+          "question_overlap": 0.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T06:03:33Z",
+      "updated_at": "2026-05-25T06:03:33Z"
+    },
+    "28b283c9-3a44-4e30-84d9-2fe07d98df81": {
+      "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "我是谁"
+      },
+      "result": {
+        "answer_mode": "llm",
+        "kb_hit": false,
+        "final_answer": "你是一个正在寻求知识和帮助的人。无论你是在寻找学习建议、解决问题，还是想要了解某个特定主题，我都在这里为你提供支持和指导。如果你有具体的问题或想要讨论的内容，请告诉我，我会尽力帮助你！",
+        "retrieval_summary": {
+          "query_expansions": [],
+          "route_subjects": [],
+          "route_type": "analysis",
+          "graph_documents": 0,
+          "vector_candidates": 15,
+          "lexical_candidates": 5,
+          "final_candidates": 10,
+          "max_per_source": 3,
+          "vector_k": 26,
+          "lexical_k": 24,
+          "final_k": 10,
+          "rerank_window": 15,
+          "cache_hit": false,
+          "cache_similarity": 0.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": false,
+          "grounding_score": 0.0,
+          "reference_overlap": 0.0,
+          "question_overlap": 0.0
+        },
+        "loop_step": 2,
+        "retry_count": 1
+      },
+      "thread_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 2,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T06:30:14Z",
+      "updated_at": "2026-05-25T06:30:28Z"
+    },
+    "a03c4f10-7915-4b42-9320-55a7879a5ca0": {
+      "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+      "kind": "chat",
+      "title": "知识库问答任务",
+      "status": "completed",
+      "payload": {
+        "question": "python中 int 类型"
+      },
+      "result": {
+        "answer_mode": "graph_kb",
+        "kb_hit": true,
+        "final_answer": "资料中未直接涉及 Python 中的 int 类型，但我可以提供相关信息。 \n\n在 Python 中，`int` 类型用于表示整数。其定义如下：\n- **定义**：`int` 是一种数据类型，用于表示没有小数部分的数字。\n- **创建**：可以通过直接赋值创建，例如 `a = 5` 或 `b = -10`。\n- **常用操作**：可以进行加、减、乘、除等基本数学运算，例如 `c = a + b`。\n\n学习建议：可以通过实践创建不同的整数变量，并尝试进行各种运算，以加深对 `int` 类型的理解。",
+        "retrieval_summary": {
+          "query_expansions": [
+            "Python 编程"
+          ],
+          "route_subjects": [
+            "computer_science"
+          ],
+          "route_type": "complex",
+          "graph_documents": 1,
+          "vector_candidates": 15,
+          "lexical_candidates": 6,
+          "final_candidates": 10,
+          "max_per_source": 2,
+          "vector_k": 22,
+          "lexical_k": 20,
+          "final_k": 9,
+          "rerank_window": 15,
+          "cache_hit": false,
+          "cache_similarity": 0.0,
+          "chunk_budget_tokens": 260,
+          "graph_budget_tokens": 120
+        },
+        "answer_validation": {
+          "grounded": true,
+          "grounding_score": 0.3444,
+          "reference_overlap": 0.0339,
+          "question_overlap": 1.0
+        },
+        "loop_step": 1,
+        "retry_count": 0
+      },
+      "thread_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+      "source_id": null,
+      "owner": null,
+      "retry_count": 0,
+      "max_steps": 2,
+      "current_step": 1,
+      "error_code": null,
+      "error_message": null,
+      "created_at": "2026-05-25T06:39:00Z",
+      "updated_at": "2026-05-25T06:39:37Z"
     }
   },
   "events": {
@@ -556,6 +768,886 @@
           "retry_count": 0
         },
         "created_at": "2026-05-25T06:01:05Z"
+      }
+    ],
+    "69b6b8af-c31f-45ca-b029-900c5153f1c5": [
+      {
+        "event_id": "b0c8ae33ece6465dba0ae2e940082cd9",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:03:06Z"
+      },
+      {
+        "event_id": "788744a6fce44b5d9dd7544d859c4821",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:03:06Z"
+      },
+      {
+        "event_id": "6b8fcf17a938412a9159cf87f0fcb7c5",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "python"
+        },
+        "created_at": "2026-05-25T06:03:06Z"
+      },
+      {
+        "event_id": "5a960f238ed240a6b1835bcb2b4729a3",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:03:06Z"
+      },
+      {
+        "event_id": "1a7711a2aa344391b31392c98278c65f",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 3,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T06:03:12Z"
+      },
+      {
+        "event_id": "ec84723d5b0b4737bdb8f94bc3b88e94",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T06:03:12Z"
+      },
+      {
+        "event_id": "c164b53825234f458620cc0c70e23733",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 3 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": false,
+            "cache_similarity": 0.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:03:12Z"
+      },
+      {
+        "event_id": "100b6b9947cc4c9ba4ce20efa400973e",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:03:15Z"
+      },
+      {
+        "event_id": "9df1a5c5e747417c92c32b4b5e8d04fd",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T06:03:15Z"
+      },
+      {
+        "event_id": "bd8053ddd864455588b9fca14cc727ed",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "2f1aa047-7a17-5af5-b622-71b0b8497c36"
+          ]
+        },
+        "created_at": "2026-05-25T06:03:15Z"
+      },
+      {
+        "event_id": "52e308ca578044afa468e998a2d3ce2c",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:03:15Z"
+      },
+      {
+        "event_id": "e9b7442b8e424b7abf58ce9aeef883cd",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_completed",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "已基于知识库生成回答",
+        "data": {
+          "answer_mode": "graph_kb",
+          "grounding_score": 0.4271,
+          "selected_source": "graph://knowledge-map"
+        },
+        "created_at": "2026-05-25T06:03:23Z"
+      },
+      {
+        "event_id": "8dd23fb6d69b4544aa877d285323ccc7",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:03:23Z"
+      },
+      {
+        "event_id": "52b74acfbe3c4aeebe253ed1782d60a3",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "回答已通过 critic 校验",
+        "data": {
+          "step": 1,
+          "grounding_score": 0.4271
+        },
+        "created_at": "2026-05-25T06:03:23Z"
+      },
+      {
+        "event_id": "d4e1d691f3054147a96ca135e8a58436",
+        "task_id": "69b6b8af-c31f-45ca-b029-900c5153f1c5",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "Python 是一种高级编程语言，广泛用于各种应用程序开发。它的语法简洁易读，适合初学者和专业开发者。\n\n列表推导式是 Python 中的一种简洁的创建列表的方法。其基本语法为：\n\n```python\nnew_list = [expression for item in iterable if condition]\n```\n\n例如，创建一个包含 0 到 9 的平方的列表，可以使用列表推导式如下：\n\n```python\nsquares = [x**2 for x in range(10)]\n```\n\n这将生成列表 `[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]`。列表推导式使得代码更简洁且易于理解。",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": false,
+            "cache_similarity": 0.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": true,
+            "grounding_score": 0.4271,
+            "reference_overlap": 0.0932,
+            "question_overlap": 1.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:03:23Z"
+      }
+    ],
+    "ffb53641-f00e-4e40-8d1a-68511e2cee0d": [
+      {
+        "event_id": "5a6deb10c1924243a5e94da86b74f137",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "109baeb743f34b2da4af7d044e74edd3",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "0bfe5ec5d63546609cb0d728ca0c0c61",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "python"
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "f67e0865da41463a935c77868b412331",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "31d682e2953d42988e9d6ce1e0fb172d",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 3,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "93cbacb6a37f4a7cbf6d32923c0aca13",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      },
+      {
+        "event_id": "d7775c8bda4547d5a65ae4de9c3677dd",
+        "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 3 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "simple",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 2,
+            "final_candidates": 9,
+            "max_per_source": 2,
+            "vector_k": 18,
+            "lexical_k": 16,
+            "final_k": 8,
+            "rerank_window": 15,
+            "cache_hit": true,
+            "cache_similarity": 1.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:03:33Z"
+      }
+    ],
+    "28b283c9-3a44-4e30-84d9-2fe07d98df81": [
+      {
+        "event_id": "6ece9ac3de874831ab232c62c5649d1f",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:30:14Z"
+      },
+      {
+        "event_id": "3de3b29156ee4b13ab08a28750b2b63a",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:30:14Z"
+      },
+      {
+        "event_id": "af6d911631be4c26926bcd4ae11b5fd0",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "我是谁"
+        },
+        "created_at": "2026-05-25T06:30:14Z"
+      },
+      {
+        "event_id": "75e52d451ab64b4d9d4269752f4c3245",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:30:14Z"
+      },
+      {
+        "event_id": "60953efffc4043ab9c12b3e26e10b93b",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "running",
+        "message": "知识库未命中，转入 LLM 直答",
+        "data": {
+          "kb_hit": false,
+          "route_type": "simple"
+        },
+        "created_at": "2026-05-25T06:30:17Z"
+      },
+      {
+        "event_id": "cdd65aeac94044068313a53125d71b26",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "generate_llm",
+        "status": "running",
+        "message": "节点开始执行：generate_llm",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:30:17Z"
+      },
+      {
+        "event_id": "ed2dec5bef494ea5a696b1088bc5d374",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "generate_llm",
+        "status": "running",
+        "message": "已完成 LLM 直答",
+        "data": {
+          "answer_mode": "llm",
+          "answer_length": 83
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "49042ba85da24fbb9f13c8d4ef41c1a5",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "f351b66bfcbc42c299bca5d310503068",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "retrying",
+        "message": "critic 要求进入下一轮重试",
+        "data": {
+          "step": 1,
+          "max_steps": 2,
+          "reason": "上一轮知识库未命中，请放宽召回范围并优先扩展别名与图谱概念",
+          "grounding_score": 0.0
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "97ff4d4dc0604367b2105a657714ce26",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "planner",
+        "status": "retrying",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "5cae7cd611f94111aac8ab52119c6938",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 2,
+          "max_steps": 2,
+          "plan_question": "我是谁\n补充检索要求：上一轮知识库未命中，请放宽召回范围并优先扩展别名与图谱概念"
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "91b591f7e5464d72b3d676dec0297cc0",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 2
+        },
+        "created_at": "2026-05-25T06:30:23Z"
+      },
+      {
+        "event_id": "8f4c7319cb7d4f71b5a6a55e08182624",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "running",
+        "message": "知识库未命中，转入 LLM 直答",
+        "data": {
+          "kb_hit": false,
+          "route_type": "analysis"
+        },
+        "created_at": "2026-05-25T06:30:24Z"
+      },
+      {
+        "event_id": "17751eef67794070901c1430207278b4",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "generate_llm",
+        "status": "running",
+        "message": "节点开始执行：generate_llm",
+        "data": {
+          "step": 2
+        },
+        "created_at": "2026-05-25T06:30:24Z"
+      },
+      {
+        "event_id": "d29a23dd55274d7dabf33c47b05e2f48",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "generate_llm",
+        "status": "running",
+        "message": "已完成 LLM 直答",
+        "data": {
+          "answer_mode": "llm",
+          "answer_length": 92
+        },
+        "created_at": "2026-05-25T06:30:28Z"
+      },
+      {
+        "event_id": "48e2afecb68b44afbbecaa6d08c9ef31",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 2
+        },
+        "created_at": "2026-05-25T06:30:28Z"
+      },
+      {
+        "event_id": "cda5b82cc44e4997a6116b3ed6a33d5c",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "critic 结束循环",
+        "data": {
+          "step": 2,
+          "max_steps": 2,
+          "grounding_score": 0.0,
+          "has_answer": true
+        },
+        "created_at": "2026-05-25T06:30:28Z"
+      },
+      {
+        "event_id": "20cdd02658a0477fb62a467a6a96f3d0",
+        "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "llm",
+          "kb_hit": false,
+          "final_answer": "你是一个正在寻求知识和帮助的人。无论你是在寻找学习建议、解决问题，还是想要了解某个特定主题，我都在这里为你提供支持和指导。如果你有具体的问题或想要讨论的内容，请告诉我，我会尽力帮助你！",
+          "retrieval_summary": {
+            "query_expansions": [],
+            "route_subjects": [],
+            "route_type": "analysis",
+            "graph_documents": 0,
+            "vector_candidates": 15,
+            "lexical_candidates": 5,
+            "final_candidates": 10,
+            "max_per_source": 3,
+            "vector_k": 26,
+            "lexical_k": 24,
+            "final_k": 10,
+            "rerank_window": 15,
+            "cache_hit": false,
+            "cache_similarity": 0.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 2,
+          "retry_count": 1
+        },
+        "created_at": "2026-05-25T06:30:28Z"
+      }
+    ],
+    "a03c4f10-7915-4b42-9320-55a7879a5ca0": [
+      {
+        "event_id": "bb7a4e38f60940fbbccb0c6b48569295",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "task_started",
+        "node": null,
+        "status": "running",
+        "message": "任务已启动：知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:39:00Z"
+      },
+      {
+        "event_id": "5eb29ab9b29f433ab918b5f8eafee5e4",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_started",
+        "node": "planner",
+        "status": "running",
+        "message": "节点开始执行：planner",
+        "data": {
+          "step": 0
+        },
+        "created_at": "2026-05-25T06:39:00Z"
+      },
+      {
+        "event_id": "5e445a7925764d81ad8929cabde1f4a8",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_completed",
+        "node": "planner",
+        "status": "running",
+        "message": "完成本轮规划",
+        "data": {
+          "loop_step": 1,
+          "max_steps": 2,
+          "plan_question": "python中 int 类型"
+        },
+        "created_at": "2026-05-25T06:39:00Z"
+      },
+      {
+        "event_id": "009955a1dd6c4470a5867e521f595d1a",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_started",
+        "node": "retrieve",
+        "status": "running",
+        "message": "节点开始执行：retrieve",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:39:00Z"
+      },
+      {
+        "event_id": "31e78d9f286c455b9503a669c308db27",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_completed",
+        "node": "retrieve",
+        "status": "awaiting_input",
+        "message": "检索命中知识库候选",
+        "data": {
+          "kb_hit": true,
+          "candidates": 3,
+          "route_type": "complex"
+        },
+        "created_at": "2026-05-25T06:39:06Z"
+      },
+      {
+        "event_id": "1df539a6861c4aab82f2bf2c2e91e34e",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T06:39:06Z"
+      },
+      {
+        "event_id": "d0fbd90c89e7497b9d35197ca03a169b",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "task_awaiting_input",
+        "node": null,
+        "status": "awaiting_input",
+        "message": "知识库已匹配 3 条相关资料，请单选 1 条后生成解答。",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "complex",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 6,
+            "final_candidates": 10,
+            "max_per_source": 2,
+            "vector_k": 22,
+            "lexical_k": 20,
+            "final_k": 9,
+            "rerank_window": 15,
+            "cache_hit": false,
+            "cache_similarity": 0.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": false,
+            "grounding_score": 0.0,
+            "reference_overlap": 0.0,
+            "question_overlap": 0.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:39:06Z"
+      },
+      {
+        "event_id": "e0e23f9130b74e5ebee38615d0494d5e",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "task_running",
+        "node": null,
+        "status": "running",
+        "message": "继续执行知识库问答任务",
+        "data": {},
+        "created_at": "2026-05-25T06:39:31Z"
+      },
+      {
+        "event_id": "6818850392c2471a9d92d4da3229d118",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "awaiting_input",
+        "node": "human_select",
+        "status": "awaiting_input",
+        "message": "等待用户选择知识片段",
+        "data": {
+          "choices": 3
+        },
+        "created_at": "2026-05-25T06:39:31Z"
+      },
+      {
+        "event_id": "776d14f036d441c9a4ee3b78e79118ed",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "input_received",
+        "node": "human_select",
+        "status": "running",
+        "message": "已收到用户选择的知识片段",
+        "data": {
+          "selected_chunk_ids": [
+            "2f1aa047-7a17-5af5-b622-71b0b8497c36"
+          ]
+        },
+        "created_at": "2026-05-25T06:39:31Z"
+      },
+      {
+        "event_id": "1e4e03fddf984ecca175c50a22b53db3",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_started",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "节点开始执行：generate_answer",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:39:31Z"
+      },
+      {
+        "event_id": "a8ee70982727402bbd91667611bc91b7",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_completed",
+        "node": "generate_answer",
+        "status": "running",
+        "message": "已基于知识库生成回答",
+        "data": {
+          "answer_mode": "graph_kb",
+          "grounding_score": 0.3444,
+          "selected_source": "graph://knowledge-map"
+        },
+        "created_at": "2026-05-25T06:39:37Z"
+      },
+      {
+        "event_id": "99d0ef11a98e4c5fb5d5fa78c0714b56",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_started",
+        "node": "critic",
+        "status": "running",
+        "message": "节点开始执行：critic",
+        "data": {
+          "step": 1
+        },
+        "created_at": "2026-05-25T06:39:37Z"
+      },
+      {
+        "event_id": "c37b07fef43947c982a1b5a23aa8dd92",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "node_completed",
+        "node": "critic",
+        "status": "completed",
+        "message": "回答已通过 critic 校验",
+        "data": {
+          "step": 1,
+          "grounding_score": 0.3444
+        },
+        "created_at": "2026-05-25T06:39:37Z"
+      },
+      {
+        "event_id": "fcc947c23df04c5099362281ffd00fa2",
+        "task_id": "a03c4f10-7915-4b42-9320-55a7879a5ca0",
+        "type": "task_completed",
+        "node": null,
+        "status": "completed",
+        "message": "任务执行完成",
+        "data": {
+          "answer_mode": "graph_kb",
+          "kb_hit": true,
+          "final_answer": "资料中未直接涉及 Python 中的 int 类型，但我可以提供相关信息。 \n\n在 Python 中，`int` 类型用于表示整数。其定义如下：\n- **定义**：`int` 是一种数据类型，用于表示没有小数部分的数字。\n- **创建**：可以通过直接赋值创建，例如 `a = 5` 或 `b = -10`。\n- **常用操作**：可以进行加、减、乘、除等基本数学运算，例如 `c = a + b`。\n\n学习建议：可以通过实践创建不同的整数变量，并尝试进行各种运算，以加深对 `int` 类型的理解。",
+          "retrieval_summary": {
+            "query_expansions": [
+              "Python 编程"
+            ],
+            "route_subjects": [
+              "computer_science"
+            ],
+            "route_type": "complex",
+            "graph_documents": 1,
+            "vector_candidates": 15,
+            "lexical_candidates": 6,
+            "final_candidates": 10,
+            "max_per_source": 2,
+            "vector_k": 22,
+            "lexical_k": 20,
+            "final_k": 9,
+            "rerank_window": 15,
+            "cache_hit": false,
+            "cache_similarity": 0.0,
+            "chunk_budget_tokens": 260,
+            "graph_budget_tokens": 120
+          },
+          "answer_validation": {
+            "grounded": true,
+            "grounding_score": 0.3444,
+            "reference_overlap": 0.0339,
+            "question_overlap": 1.0
+          },
+          "loop_step": 1,
+          "retry_count": 0
+        },
+        "created_at": "2026-05-25T06:39:37Z"
       }
     ]
   }

@@ -21,6 +21,7 @@ export interface GraphSummary {
 export interface RetrievalSummary {
   query_expansions: string[];
   route_subjects: string[];
+  route_type?: string;
   graph_documents: number;
   vector_candidates: number;
   lexical_candidates: number;
@@ -31,6 +32,7 @@ export interface RetrievalSummary {
 }
 
 export interface ChatStartResponse {
+  task_id: string;
   thread_id: string;
   status: "awaiting_selection" | "completed";
   mode?: "kb" | "graph_kb" | "llm" | "greeting";
@@ -41,6 +43,55 @@ export interface ChatStartResponse {
   selection_mode?: "single";
   graph_summary?: GraphSummary;
   retrieval_summary?: RetrievalSummary;
+}
+
+export interface ChatResumeResponse {
+  task_id: string;
+  thread_id: string;
+  status: "completed";
+  mode?: "kb" | "graph_kb" | "llm" | "greeting";
+  kb_hit?: boolean;
+  answer?: string;
+  message?: string | null;
+  graph_summary?: GraphSummary;
+  retrieval_summary?: RetrievalSummary;
+}
+
+export interface ChatTaskResult {
+  answer_mode?: string;
+  kb_hit?: boolean;
+  final_answer?: string;
+  loop_step?: number;
+  retry_count?: number;
+  message?: string;
+}
+
+export interface ChatTask {
+  task_id: string;
+  thread_id?: string | null;
+  title: string;
+  status: "running" | "awaiting_input" | "retrying" | "completed" | "failed" | "timeout" | "cancelled";
+  payload?: {
+    question?: string;
+  };
+  result?: ChatTaskResult;
+  updated_at?: string;
+  created_at?: string;
+}
+
+export interface ChatStateResponse {
+  task_id: string;
+  thread_id: string;
+  next: string[];
+  retrieved_chunks: RetrievedChunk[];
+  final_answer?: string;
+  graph_summary?: GraphSummary;
+  retrieval_summary?: RetrievalSummary;
+  task?: ChatTask | null;
+}
+
+export interface TaskListResponse {
+  items: ChatTask[];
 }
 
 export interface DailyPush {
@@ -125,12 +176,25 @@ export async function chatStart(question: string, threadId?: string): Promise<Ch
   return r.json();
 }
 
-export async function chatResume(threadId: string, selectedChunkIds: string[]) {
+export async function chatResume(threadId: string, selectedChunkIds: string[]): Promise<ChatResumeResponse> {
   const r = await fetch(`${API}/chat/resume`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ thread_id: threadId, selected_chunk_ids: selectedChunkIds }),
   });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getChatState(threadId: string): Promise<ChatStateResponse> {
+  const r = await fetch(`${API}/chat/state/${threadId}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getPendingChatTasks(limit = 20): Promise<TaskListResponse> {
+  const params = new URLSearchParams({ kind: "chat", status: "awaiting_input", limit: String(limit) });
+  const r = await fetch(`${API}/tasks?${params.toString()}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

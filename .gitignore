@@ -10,4 +10,5 @@ backend/static/
 backend/data/daily_push.json
 node_modules/
 frontend/dist/
+md/*
 .DS_Store

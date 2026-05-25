@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   chatResume,
   chatStart,
   generateImage,
   generateVideo,
+  getChatState,
   getMediaJob,
+  getPendingChatTasks,
   ingestKnowledge,
+  type ChatStateResponse,
+  type ChatTask,
   type GraphSummary,
   type MediaJob,
   type RetrievedChunk,
@@ -27,6 +31,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
   const [graphSummary, setGraphSummary] = useState<GraphSummary | null>(null);
+  const [pendingChats, setPendingChats] = useState<ChatTask[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null);
 
   const [mediaPrompt, setMediaPrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("课堂活动宣传海报");
@@ -45,6 +52,90 @@ export default function App() {
       ? `；关联概念：${summary.related_concepts.slice(0, 4).join("、")}`
       : "";
     return `${matched}${related}`;
+  };
+
+  const formatTaskTime = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const refreshPendingChats = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      const res = await getPendingChatTasks();
+      setPendingChats(res.items ?? []);
+    } catch {
+      setPendingChats([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPendingChats();
+  }, [refreshPendingChats]);
+
+  const buildResumeMessage = (state: ChatStateResponse) => {
+    const graphHint = formatGraphSummary(state.graph_summary ?? null);
+    const base = state.task?.result?.message || "已恢复中断任务，请单选 1 条资料后继续生成解答。";
+    return graphHint ? `${base}\n\n${graphHint}` : base;
+  };
+
+  const restorePendingTask = (state: ChatStateResponse) => {
+    const restoredThreadId = state.thread_id || state.task_id;
+    const restoredQuestion = state.task?.payload?.question || "已恢复中断任务";
+    const restoredChunks = state.retrieved_chunks ?? [];
+    setThreadId(restoredThreadId);
+    setGraphSummary(state.graph_summary ?? null);
+    setChunks(restoredChunks);
+    setSelectedId(restoredChunks[0]?.id ?? null);
+    setQuestion("");
+    setPhase("select");
+    setMessages([
+      { role: "user", content: restoredQuestion },
+      { role: "assistant", content: buildResumeMessage(state) },
+    ]);
+  };
+
+  const handleResumePending = async (task: ChatTask) => {
+    const resumeThreadId = task.thread_id || task.task_id;
+    if (!resumeThreadId) return;
+    setResumeLoadingId(task.task_id);
+    setError(null);
+    try {
+      const state = await getChatState(resumeThreadId);
+      if (!state.retrieved_chunks?.length) {
+        throw new Error("该中断任务未找到可选知识片段，请重新提问。 ");
+      }
+      restorePendingTask(state);
+    } catch (e) {
+      setError(e instanceof Error ? e.message.trim() : String(e));
+      await refreshPendingChats();
+    } finally {
+      setResumeLoadingId(null);
+    }
+  };
+
+  const handlePauseSelection = async () => {
+    if (!threadId) return;
+    setPhase("idle");
+    setChunks([]);
+    setSelectedId(null);
+    setMessages((m) => [
+      ...m,
+      {
+        role: "assistant",
+        content: "当前问答已暂存，可在左侧“待继续问答”中随时恢复。",
+      },
+    ]);
+    await refreshPendingChats();
   };
 
   const handleIngest = async () => {
@@ -89,15 +180,22 @@ export default function App() {
               (graphHint ? `\n\n${graphHint}` : ""),
           },
         ]);
+        await refreshPendingChats();
       } else if (res.status === "completed" && res.answer) {
         setPhase("done");
+        setChunks([]);
+        setSelectedId(null);
         const note = res.mode === "llm" && res.message ? `${res.message}\n\n` : "";
         const graphPrefix = graphHint ? `${graphHint}\n\n` : "";
         setMessages((m) => [...m, { role: "assistant", content: graphPrefix + note + res.answer }]);
+        await refreshPendingChats();
       } else if (res.answer) {
         setPhase("done");
+        setChunks([]);
+        setSelectedId(null);
         const graphPrefix = graphHint ? `${graphHint}\n\n` : "";
         setMessages((m) => [...m, { role: "assistant", content: graphPrefix + res.answer }]);
+        await refreshPendingChats();
       } else {
         setPhase("idle");
         setMessages((m) => [
@@ -122,6 +220,7 @@ export default function App() {
       const res = await chatResume(threadId, [selectedId]);
       setPhase("done");
       setChunks([]);
+      setSelectedId(null);
       setGraphSummary(res.graph_summary ?? null);
       const graphHint = formatGraphSummary(res.graph_summary);
       setMessages((m) => [
@@ -131,6 +230,7 @@ export default function App() {
           content: `${graphHint ? `${graphHint}\n\n` : ""}${res.answer || res.message || "未生成回答"}`,
         },
       ]);
+      await refreshPendingChats();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase("select");
@@ -216,6 +316,40 @@ export default function App() {
           {graphSummary?.matched_concepts?.length ? (
             <p className="status">{formatGraphSummary(graphSummary)}</p>
           ) : null}
+        </section>
+
+        <section className="panel pending-panel">
+          <h2>待继续问答</h2>
+          <p className="hint">支持前端中断后继续，恢复后可直接续选知识片段。</p>
+          {phase === "select" && threadId ? (
+            <button type="button" className="btn secondary pending-action" onClick={handlePauseSelection}>
+              暂存当前问答
+            </button>
+          ) : null}
+          {pendingLoading ? <p className="pending-empty">正在加载待处理任务…</p> : null}
+          {!pendingLoading && pendingChats.length === 0 ? <p className="pending-empty">暂无待继续任务</p> : null}
+          <div className="pending-list">
+            {pendingChats.map((task) => {
+              const resumeThreadId = task.thread_id || task.task_id;
+              const questionText = task.payload?.question || task.title;
+              const isActive = threadId === resumeThreadId && phase === "select";
+              const isLoading = resumeLoadingId === task.task_id;
+              return (
+                <button
+                  key={task.task_id}
+                  type="button"
+                  className={`pending-item${isActive ? " pending-item--active" : ""}`}
+                  onClick={() => void handleResumePending(task)}
+                  disabled={isLoading}
+                >
+                  <span className="pending-title">{questionText}</span>
+                  <span className="pending-meta">
+                    {isLoading ? "恢复中…" : `状态：待选择 · ${formatTaskTime(task.updated_at || task.created_at)}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="panel push-panel">
@@ -415,7 +549,15 @@ export default function App() {
 
         {phase === "select" && chunks.length > 0 && (
           <section className="chunk-picker">
-            <h3>单选一条参考资料</h3>
+            <div className="chunk-picker__header">
+              <div>
+                <h3>单选一条参考资料</h3>
+                <p className="chunk-picker__hint">当前会话已进入人工中断状态，可暂存后稍后继续。</p>
+              </div>
+              <button type="button" className="btn secondary chunk-picker__pause" onClick={handlePauseSelection}>
+                稍后继续
+              </button>
+            </div>
             <div className="chunk-list">
               {chunks.map((c) => (
                 <label key={c.id} className={`chunk-item ${selectedId === c.id ? "selected" : ""}`}>
@@ -439,14 +581,16 @@ export default function App() {
                 </label>
               ))}
             </div>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={handleConfirmSelection}
-              disabled={!selectedId}
-            >
-              基于所选资料生成解答
-            </button>
+            <div className="chunk-picker__actions">
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleConfirmSelection}
+                disabled={!selectedId}
+              >
+                基于所选资料生成解答
+              </button>
+            </div>
           </section>
         )}
 
@@ -461,16 +605,16 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleAsk();
+                void handleAsk();
               }
             }}
-            disabled={phase === "loading" || phase === "select"}
+            disabled={phase === "loading"}
           />
           <button
             type="button"
             className="btn primary"
-            onClick={handleAsk}
-            disabled={phase === "loading" || phase === "select" || !question.trim()}
+            onClick={() => void handleAsk()}
+            disabled={phase === "loading" || !question.trim()}
           >
             {phase === "loading" ? "处理中…" : "提问"}
           </button>
