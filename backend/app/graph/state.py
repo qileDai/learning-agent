@@ -17,7 +17,7 @@ class RetrievedChunk(TypedDict):
     rank_score: float | None
 
 
-class RetrievalSummary(TypedDict):
+class RetrievalSummary(TypedDict, total=False):
     query_expansions: list[str]
     route_subjects: list[str]
     route_type: str
@@ -34,13 +34,20 @@ class RetrievalSummary(TypedDict):
     graph_budget_tokens: int
     cache_hit: bool
     cache_similarity: float
+    retry_count: int
+    retry_strategy: str
+    score_profile: dict[str, float]
 
 
-class AnswerValidation(TypedDict):
+class AnswerValidation(TypedDict, total=False):
     grounded: bool
     grounding_score: float
     reference_overlap: float
     question_overlap: float
+    citation_coverage: float
+    supported_claims: int
+    unsupported_claims: int
+    weak_sentences: list[str]
 
 
 class ExecutionTrace(TypedDict):
@@ -52,7 +59,7 @@ class ExecutionTrace(TypedDict):
     data: dict
 
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     execution_trace: Annotated[list[ExecutionTrace], operator.add]
     question: str
@@ -73,5 +80,8 @@ class AgentState(TypedDict):
     max_steps: int
     critic_decision: str
     critic_reason: str
+    critic_reason_code: str
+    retry_strategy: str
     retry_count: int
     task_status: str
+    task_error_code: str

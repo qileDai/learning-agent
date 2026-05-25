@@ -52,11 +52,15 @@ class Settings(BaseSettings):
     retrieval_cache_file: str = str(BACKEND_ROOT / "data" / "graph_index" / "retrieval_cache.json")
     retrieval_cache_similarity_threshold: float = 0.84
     retrieval_cache_max_entries: int = 200
-    retrieval_answer_grounding_threshold: float = 0.18
+    retrieval_answer_grounding_threshold: float = 0.24
+    retrieval_answer_grounding_sentence_threshold: float = 0.1
 
+    task_store_backend: str = "sqlite"
     task_store_file: str = str(BACKEND_ROOT / "data" / "runtime" / "tasks.json")
+    task_store_db_file: str = str(BACKEND_ROOT / "data" / "runtime" / "tasks.sqlite3")
+    task_store_migrate_legacy_json: bool = True
     task_event_limit: int = 200
-    graph_max_steps: int = 2
+    graph_max_steps: int = 3
     graph_task_timeout_seconds: int = 180
     media_job_timeout_seconds: int = 1800
     media_job_max_refresh_attempts: int = 30

@@ -1,17 +1,3 @@
-"""混合检索主流程。
-
-调用关系：
-1. graph/nodes.py -> hybrid_retrieve：回答链路的检索入口
-2. hybrid_retrieve -> expand_query：先做查询扩展与路由
-3. hybrid_retrieve -> search_graph：先拿图谱概念、关系、来源分数
-4. hybrid_retrieve -> similarity_search_with_scores：查向量召回
-5. hybrid_retrieve -> _build_lexical_candidates：查 ES / 本地词法召回
-6. hybrid_retrieve -> reciprocal_rank_fusion / diversify_documents：做融合排序与多样性控制
-7. hybrid_retrieve -> save_cached_retrieval：缓存最终结果
-
-这个模块是整个企业级 RAG 的“编排层”，负责把图谱、向量、关键词三路结果合成最终候选。
-"""
-
 from collections import defaultdict
 from typing import Any
 
@@ -24,6 +10,7 @@ from app.rag.retrieval_optimizer import (
     diversify_documents,
     expand_query,
     get_cached_retrieval,
+    get_score_weights,
     lexical_score,
     reciprocal_rank_fusion,
     save_cached_retrieval,
@@ -33,7 +20,6 @@ from app.rag.vector_store import load_index_documents, similarity_search_with_sc
 
 
 def _doc_key(doc: Document) -> tuple[str, str]:
-    """生成候选文档主键，用于多路召回结果合并去重。"""
     meta = dict(doc.metadata or {})
     chunk_id = str(meta.get("chunk_id") or "").strip()
     if chunk_id:
@@ -42,7 +28,6 @@ def _doc_key(doc: Document) -> tuple[str, str]:
 
 
 def _route_boost(meta: dict[str, Any], route_subjects: list[str], source_scores: dict[str, float], matched_concepts: list[str]) -> float:
-    """计算图谱路由带来的额外加分。"""
     source = str(meta.get("source", "")).strip()
     concepts = {str(item).strip() for item in meta.get("concepts") or [] if str(item).strip()}
     subject = str(meta.get("subject") or "").strip()
@@ -56,7 +41,6 @@ def _route_boost(meta: dict[str, Any], route_subjects: list[str], source_scores:
 
 
 def _intent_boost(meta: dict[str, Any], route_type: str) -> float:
-    """根据查询类型给结构化资料增加意图适配分。"""
     concepts = [str(item).strip() for item in meta.get("concepts") or [] if str(item).strip()]
     summary = str(meta.get("summary") or "")
     chapter = str(meta.get("chapter") or "")
@@ -68,10 +52,6 @@ def _intent_boost(meta: dict[str, Any], route_type: str) -> float:
 
 
 def _build_lexical_candidates(expanded_question: str, route_subjects: list[str], lexical_k: int) -> list[tuple[Document, float, int]]:
-    """构建关键词召回候选。
-
-    优先走 Elasticsearch；如果 ES 不可用，则回退到本地文档做轻量词法打分。
-    """
     if elasticsearch_enabled():
         results = elasticsearch_lexical_search(expanded_question, limit=lexical_k, route_subjects=route_subjects)
         if results:
@@ -89,19 +69,7 @@ def _build_lexical_candidates(expanded_question: str, route_subjects: list[str],
     return [(doc, score, rank) for rank, (doc, score) in enumerate(candidates[:lexical_k])]
 
 
-def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Document], dict]:
-    """执行混合检索。
-
-    主流程：
-    1. 查询扩展和路由
-    2. 语义缓存命中判断
-    3. 图谱检索
-    4. 向量召回
-    5. 关键词召回
-    6. 多源融合排序
-    7. 多样性裁剪
-    8. 回写检索摘要和缓存
-    """
+def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: int = 0, retry_strategy: str | None = None) -> tuple[list[Document], dict]:
     query_plan = expand_query(question)
     route_type = str(query_plan.get("route_type") or "simple")
     vector_k = max(int(vector_k or 0), int(query_plan.get("vector_k") or settings.retrieval_vector_k))
@@ -109,9 +77,18 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
     final_k = int(query_plan.get("final_k") or settings.retrieval_final_k)
     max_per_source = int(query_plan.get("max_per_source") or settings.retrieval_max_per_source)
 
-    # 先看语义缓存，命中则直接返回，降低重复检索成本。
+    if retry_count >= 1 or retry_strategy == "widen_retrieval":
+        vector_k += 4
+        lexical_k += 4
+        final_k += 1
+    if retry_count >= 2:
+        max_per_source += 1
+        final_k += 1
+
+    score_weights = get_score_weights(route_type, retry_count=retry_count, retry_strategy=retry_strategy)
+
     cached = get_cached_retrieval(question, route_type)
-    if cached is not None:
+    if cached is not None and retry_count == 0:
         documents, graph_result = cached
         retrieval_summary = dict(graph_result.get("retrieval_summary") or {})
         retrieval_summary.setdefault("route_type", route_type)
@@ -121,11 +98,13 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
         retrieval_summary.setdefault("final_k", final_k)
         retrieval_summary.setdefault("cache_hit", True)
         retrieval_summary.setdefault("max_per_source", max_per_source)
+        retrieval_summary["retry_count"] = retry_count
+        retrieval_summary["retry_strategy"] = retry_strategy or "none"
+        retrieval_summary["score_profile"] = score_weights
         graph_result["retrieval_summary"] = retrieval_summary
         graph_result.setdefault("query_plan", query_plan)
         return documents, graph_result
 
-    # 图谱先行：它提供概念命中、关系扩展，以及来源 source 的先验分数。
     graph_result = search_graph(query_plan["expanded_question"])
     source_scores = graph_result.get("source_scores", {})
     matched_concepts = [item.get("name", "") for item in graph_result.get("matched_concepts", []) if item.get("name")]
@@ -146,13 +125,11 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
     )
     rank_positions: dict[tuple[str, str], dict[str, int]] = defaultdict(dict)
 
-    # 图谱文档本身也会参与最终生成，用于给 LLM 提供关系上下文。
     documents: list[Document] = list(graph_result.get("documents", []))
     graph_docs = len(documents)
     for doc in documents:
         candidate_map[_doc_key(doc)] = doc
 
-    # 向量召回会同时尝试原问题和扩展问题，提升语义召回率。
     vector_queries = [question]
     if query_plan["expanded_question"] != question:
         vector_queries.append(query_plan["expanded_question"])
@@ -166,8 +143,7 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
             coverage = score_document_coverage(question, doc.page_content, meta, matched_concepts)
             intent = _intent_boost(meta, route_type)
             key = _doc_key(doc)
-            existing = candidate_map.get(key)
-            if existing is None:
+            if key not in candidate_map:
                 meta["score"] = round(float(distance) - route, 4)
                 meta["retrieval_mode"] = "vector"
                 if matched_concepts and "graph_matched_concepts" not in meta:
@@ -182,7 +158,6 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
             rank_positions[key]["vector"] = min(current_rank, vector_rank)
             vector_rank += 1
 
-    # 关键词召回补齐“明确术语 / 概念名 / 章节名”这类语义检索不稳定的场景。
     lexical_ranked = _build_lexical_candidates(query_plan["expanded_question"], route_subjects, lexical_k)
     for doc, lexical, rank in lexical_ranked:
         meta = dict(doc.metadata or {})
@@ -191,8 +166,7 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
         coverage = score_document_coverage(question, doc.page_content, meta, matched_concepts)
         intent = _intent_boost(meta, route_type)
         key = _doc_key(doc)
-        existing = candidate_map.get(key)
-        if existing is None:
+        if key not in candidate_map:
             meta["score"] = round(max(0.0, 1.0 - normalized_lexical * 0.18), 4)
             meta["retrieval_mode"] = "lexical"
             if matched_concepts and "graph_matched_concepts" not in meta:
@@ -213,22 +187,18 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
             continue
         meta = dict(doc.metadata or {})
         score_parts = candidate_scores[key]
-
-        # consensus 表示同一 chunk 被多路召回同时命中，通常更可靠。
         channel_count = sum(1 for name in ("vector", "lexical", "graph") if score_parts[name] > 0)
         score_parts["consensus"] = round(channel_count * 0.06, 4)
         score_parts["rrf"] = reciprocal_rank_fusion(rank_positions.get(key, {}))
-
-        # 最终排序分数 = 多路召回强度 + 图谱路由 + 覆盖度 + 意图匹配 + RRF。
         final_rank_score = round(
-            score_parts["vector"]
-            + score_parts["lexical"]
-            + score_parts["graph"]
-            + score_parts["route"]
-            + score_parts["coverage"]
-            + score_parts["intent"]
-            + score_parts["consensus"]
-            + score_parts["rrf"] * 10,
+            score_parts["vector"] * score_weights["vector"]
+            + score_parts["lexical"] * score_weights["lexical"]
+            + score_parts["graph"] * score_weights["graph"]
+            + score_parts["route"] * score_weights["route"]
+            + score_parts["coverage"] * score_weights["coverage"]
+            + score_parts["intent"] * score_weights["intent"]
+            + score_parts["consensus"] * score_weights["consensus"]
+            + score_parts["rrf"] * score_weights["rrf"],
             4,
         )
         modes: list[str] = []
@@ -250,9 +220,8 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
             "intent": score_parts["intent"],
             "consensus": score_parts["consensus"],
             "rrf": score_parts["rrf"],
+            "weights": score_weights,
         }
-
-        # score 字段保留“越小越接近”的兼容语义，供旧逻辑继续使用。
         meta["score"] = round(float(meta.get("score", 1.0)) - score_parts["graph"] * 0.2 - score_parts["lexical"] * 0.05 - score_parts["coverage"] * 0.08, 4)
         if matched_concepts and "graph_matched_concepts" not in meta:
             meta["graph_matched_concepts"] = matched_concepts
@@ -272,8 +241,7 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
         )
     )
 
-    # 先取 rerank_window，再做 source 多样性控制，避免全被同一资料占满。
-    rerank_window = min(len(normal_docs), settings.retrieval_rerank_window)
+    rerank_window = min(len(normal_docs), settings.retrieval_rerank_window + max(retry_count * 4, 0))
     diversified = diversify_documents(normal_docs[:rerank_window], final_k, max_per_source)
     final_docs = [*graph_docs_list[:1], *diversified]
 
@@ -293,6 +261,9 @@ def hybrid_retrieve(question: str, vector_k: int | None = None) -> tuple[list[Do
         "rerank_window": rerank_window,
         "cache_hit": False,
         "cache_similarity": 0.0,
+        "retry_count": retry_count,
+        "retry_strategy": retry_strategy or "none",
+        "score_profile": score_weights,
     }
     save_cached_retrieval(question, route_type, final_docs, graph_result)
     return final_docs, graph_result

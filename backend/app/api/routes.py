@@ -183,6 +183,9 @@ def _default_retrieval_summary() -> dict:
         "graph_budget_tokens": 0,
         "cache_hit": False,
         "cache_similarity": 0.0,
+        "retry_count": 0,
+        "retry_strategy": "none",
+        "score_profile": {},
     }
 
 
@@ -192,6 +195,10 @@ def _default_answer_validation() -> dict:
         "grounding_score": 0.0,
         "reference_overlap": 0.0,
         "question_overlap": 0.0,
+        "citation_coverage": 0.0,
+        "supported_claims": 0,
+        "unsupported_claims": 0,
+        "weak_sentences": [],
     }
 
 
@@ -217,8 +224,46 @@ def _initial_chat_state(question: str, thread_id: str, task_id: str) -> dict[str
         "max_steps": settings.graph_max_steps,
         "critic_decision": "",
         "critic_reason": "",
+        "critic_reason_code": "",
+        "retry_strategy": "none",
         "retry_count": 0,
         "task_status": "running",
+        "task_error_code": "",
+    }
+
+
+def _graph_state_for_thread(thread_id: str) -> dict[str, Any] | None:
+    graph = get_graph()
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        snapshot = graph.get_state(config)
+    except Exception:
+        return None
+    values = snapshot.values if isinstance(snapshot.values, dict) else {}
+    if not values:
+        return None
+    return {
+        "task_id": thread_id,
+        "thread_id": thread_id,
+        "next": list(snapshot.next or []),
+        "retrieved_chunks": values.get("retrieved_chunks", []),
+        "selected_chunk_ids": values.get("selected_chunk_ids", []),
+        "final_answer": values.get("final_answer"),
+        "graph_summary": _graph_summary(values),
+        "retrieval_summary": values.get("retrieval_summary", _default_retrieval_summary()),
+        "answer_validation": values.get("answer_validation", _default_answer_validation()),
+        "execution_trace": values.get("execution_trace", []),
+    }
+
+
+def _build_task_detail(task: dict[str, Any]) -> dict[str, Any]:
+    task_id = str(task.get("task_id") or "")
+    thread_id = str(task.get("thread_id") or task_id)
+    graph_state = _graph_state_for_thread(thread_id) if str(task.get("kind") or "") == "chat" else None
+    return {
+        "task": task,
+        "events": get_task_events(task_id, limit=200),
+        "graph_state": graph_state,
     }
 
 
@@ -227,22 +272,34 @@ def _sync_chat_task(task_id: str, state: dict, *, paused: bool, message: str | N
         "answer_mode": state.get("answer_mode") or "llm",
         "kb_hit": bool(state.get("kb_hit")),
         "final_answer": state.get("final_answer") or "",
+        "retrieved_chunks": state.get("retrieved_chunks") or [],
+        "selected_chunk_ids": state.get("selected_chunk_ids") or [],
         "retrieval_summary": state.get("retrieval_summary") or {},
         "answer_validation": state.get("answer_validation") or _default_answer_validation(),
+        "execution_trace": state.get("execution_trace") or [],
         "loop_step": int(state.get("loop_step") or 0),
         "retry_count": int(state.get("retry_count") or 0),
+        "critic_reason": state.get("critic_reason") or "",
+        "critic_reason_code": state.get("critic_reason_code") or "",
+        "retry_strategy": state.get("retry_strategy") or "none",
     }
     status = str(state.get("task_status") or "running")
+    error_code = str(state.get("task_error_code") or "").strip() or None
+    error_message = str(state.get("critic_reason") or "").strip() or None
     if paused:
         awaiting_input_task(task_id, message=message or "等待用户选择知识片段", current_step=result["loop_step"], result=result)
         return
     if status == "timeout":
-        timeout_task(task_id, error_message=state.get("critic_reason") or "任务超时", current_step=result["loop_step"])
+        timeout_task(task_id, error_message=error_message or "任务超时", current_step=result["loop_step"])
         return
     if status == "failed":
-        fail_task(task_id, error_code="GRAPH_EXECUTION_FAILED", error_message=state.get("critic_reason") or "图执行失败", current_step=result["loop_step"])
+        fail_task(task_id, error_code=error_code or "GRAPH_EXECUTION_FAILED", error_message=error_message or "图执行失败", current_step=result["loop_step"])
         return
-    complete_task(task_id, result=result, current_step=result["loop_step"])
+    updated_result = dict(result)
+    if error_code:
+        updated_result["warning_code"] = error_code
+        updated_result["warning_message"] = error_message
+    complete_task(task_id, result=updated_result, current_step=result["loop_step"])
 
 
 @router.post("/chat/start")
@@ -276,7 +333,7 @@ def chat_start(req: ChatStartRequest):
                 "retrieved_chunks": chunks,
                 "selection_mode": "single",
                 "graph_summary": _graph_summary(state),
-                "retrieval_summary": state.get("retrieval_summary") or {},
+                "retrieval_summary": state.get("retrieval_summary") or _default_retrieval_summary(),
                 "answer_validation": state.get("answer_validation") or _default_answer_validation(),
                 "execution_trace": state.get("execution_trace") or [],
                 "message": f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。",
@@ -292,7 +349,7 @@ def chat_start(req: ChatStartRequest):
             "kb_hit": bool(state.get("kb_hit")),
             "answer": answer,
             "graph_summary": _graph_summary(state),
-            "retrieval_summary": state.get("retrieval_summary") or {},
+            "retrieval_summary": state.get("retrieval_summary") or _default_retrieval_summary(),
             "answer_validation": state.get("answer_validation") or _default_answer_validation(),
             "execution_trace": state.get("execution_trace") or [],
             "message": None if mode in {"kb", "graph_kb", "greeting"} else "知识库中无直接相关条目，以下由 AI 根据您的问题生成",
@@ -329,7 +386,7 @@ def chat_resume(req: ChatResumeRequest):
             "kb_hit": bool(state.get("kb_hit")),
             "answer": answer,
             "graph_summary": _graph_summary(state),
-            "retrieval_summary": state.get("retrieval_summary") or {},
+            "retrieval_summary": state.get("retrieval_summary") or _default_retrieval_summary(),
             "answer_validation": state.get("answer_validation") or _default_answer_validation(),
             "execution_trace": state.get("execution_trace") or [],
             "message": None if answer else "未生成回答",
@@ -342,23 +399,22 @@ def chat_resume(req: ChatResumeRequest):
 
 @router.get("/chat/state/{thread_id}")
 def chat_state(thread_id: str):
-    graph = get_graph()
-    config = {"configurable": {"thread_id": thread_id}}
-    state = graph.get_state(config)
-    values = state.values or {}
+    state = _graph_state_for_thread(thread_id)
     task = get_task(thread_id)
-    return {
-        "task_id": thread_id,
-        "thread_id": thread_id,
-        "next": state.next,
-        "retrieved_chunks": values.get("retrieved_chunks", []),
-        "final_answer": values.get("final_answer"),
-        "graph_summary": _graph_summary(values),
-        "retrieval_summary": values.get("retrieval_summary", {}),
-        "answer_validation": values.get("answer_validation", _default_answer_validation()),
-        "execution_trace": values.get("execution_trace", []),
-        "task": task,
-    }
+    if state is None:
+        return {
+            "task_id": thread_id,
+            "thread_id": thread_id,
+            "next": [],
+            "retrieved_chunks": [],
+            "final_answer": None,
+            "graph_summary": _graph_summary({}),
+            "retrieval_summary": _default_retrieval_summary(),
+            "answer_validation": _default_answer_validation(),
+            "execution_trace": [],
+            "task": task,
+        }
+    return {**state, "task": task}
 
 
 @router.get("/tasks")
@@ -372,6 +428,14 @@ def task_detail(task_id: str):
     if not task:
         raise HTTPException(404, "Task not found")
     return {"task": task}
+
+
+@router.get("/tasks/{task_id}/detail")
+def task_detail_full(task_id: str):
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return _build_task_detail(task)
 
 
 @router.get("/tasks/{task_id}/events")

@@ -10,6 +10,7 @@ export interface RetrievedChunk {
   chapter?: string | null;
   retrieval_mode?: string | null;
   concepts?: string[];
+  rank_score?: number | null;
 }
 
 export interface GraphSummary {
@@ -35,6 +36,9 @@ export interface RetrievalSummary {
   graph_budget_tokens: number;
   cache_hit?: boolean;
   cache_similarity?: number;
+  retry_count?: number;
+  retry_strategy?: string;
+  score_profile?: Record<string, number>;
 }
 
 export interface AnswerValidation {
@@ -42,6 +46,10 @@ export interface AnswerValidation {
   grounding_score: number;
   reference_overlap: number;
   question_overlap: number;
+  citation_coverage?: number;
+  supported_claims?: number;
+  unsupported_claims?: number;
+  weak_sentences?: string[];
 }
 
 export interface ExecutionTrace {
@@ -90,19 +98,33 @@ export interface ChatTaskResult {
   loop_step?: number;
   retry_count?: number;
   message?: string;
+  warning_code?: string;
+  warning_message?: string;
+  critic_reason?: string;
+  critic_reason_code?: string;
+  retry_strategy?: string;
+  retrieved_chunks?: RetrievedChunk[];
+  selected_chunk_ids?: string[];
   retrieval_summary?: RetrievalSummary;
   answer_validation?: AnswerValidation;
+  execution_trace?: ExecutionTrace[];
 }
 
 export interface ChatTask {
   task_id: string;
   thread_id?: string | null;
   title: string;
+  kind?: string;
   status: "running" | "awaiting_input" | "retrying" | "completed" | "failed" | "timeout" | "cancelled";
   payload?: {
     question?: string;
   };
   result?: ChatTaskResult;
+  error_code?: string | null;
+  error_message?: string | null;
+  retry_count?: number;
+  current_step?: number;
+  max_steps?: number;
   updated_at?: string;
   created_at?: string;
 }
@@ -112,12 +134,30 @@ export interface ChatStateResponse {
   thread_id: string;
   next: string[];
   retrieved_chunks: RetrievedChunk[];
+  selected_chunk_ids?: string[];
   final_answer?: string;
   graph_summary?: GraphSummary;
   retrieval_summary?: RetrievalSummary;
   answer_validation?: AnswerValidation;
   execution_trace?: ExecutionTrace[];
   task?: ChatTask | null;
+}
+
+export interface TaskEvent {
+  event_id: string;
+  task_id: string;
+  type: string;
+  node?: string | null;
+  status?: string | null;
+  message: string;
+  data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ChatTaskDetailResponse {
+  task: ChatTask;
+  events: TaskEvent[];
+  graph_state?: ChatStateResponse | null;
 }
 
 export interface TaskListResponse {
@@ -222,9 +262,20 @@ export async function getChatState(threadId: string): Promise<ChatStateResponse>
   return r.json();
 }
 
-export async function getPendingChatTasks(limit = 20): Promise<TaskListResponse> {
-  const params = new URLSearchParams({ kind: "chat", status: "awaiting_input", limit: String(limit) });
+export async function getChatTasks(options?: { status?: string; limit?: number }): Promise<TaskListResponse> {
+  const params = new URLSearchParams({ kind: "chat", limit: String(options?.limit ?? 20) });
+  if (options?.status) params.set("status", options.status);
   const r = await fetch(`${API}/tasks?${params.toString()}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getPendingChatTasks(limit = 20): Promise<TaskListResponse> {
+  return getChatTasks({ status: "awaiting_input", limit });
+}
+
+export async function getChatTaskDetail(taskId: string): Promise<ChatTaskDetailResponse> {
+  const r = await fetch(`${API}/tasks/${taskId}/detail`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

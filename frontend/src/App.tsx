@@ -5,17 +5,21 @@ import {
   generateImage,
   generateVideo,
   getChatState,
+  getChatTaskDetail,
+  getChatTasks,
   getMediaJob,
   getPendingChatTasks,
   ingestKnowledge,
   type AnswerValidation,
   type ChatStateResponse,
   type ChatTask,
+  type ChatTaskDetailResponse,
   type ExecutionTrace,
   type GraphSummary,
   type MediaJob,
   type RetrievalSummary,
   type RetrievedChunk,
+  type TaskEvent,
 } from "./api";
 import DailySchedulePanel from "./DailySchedule";
 import "./App.css";
@@ -54,6 +58,11 @@ const TRACE_DATA_LABEL: Record<string, string> = {
   answer_mode: "回答模式",
   grounding_score: "可信分",
   retry_count: "重试次数",
+  retry_strategy: "重试策略",
+  reason_code: "原因编码",
+  citation_coverage: "证据覆盖",
+  selected_source: "主证据",
+  supporting_sources: "辅助证据",
 };
 
 export default function App() {
@@ -72,7 +81,11 @@ export default function App() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [pendingChats, setPendingChats] = useState<ChatTask[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [taskHistory, setTaskHistory] = useState<ChatTask[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null);
+  const [inspectedTaskDetail, setInspectedTaskDetail] = useState<ChatTaskDetailResponse | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
   const [mediaPrompt, setMediaPrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("课堂活动宣传海报");
@@ -103,6 +116,21 @@ export default function App() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatTaskStatus = (status?: string | null) => {
+    if (!status) return "未知";
+    return (
+      {
+        running: "运行中",
+        awaiting_input: "待选择",
+        retrying: "重试中",
+        completed: "已完成",
+        failed: "失败",
+        timeout: "超时",
+        cancelled: "已取消",
+      }[status] ?? status
+    );
   };
 
   const formatPercent = (value?: number | null) => {
@@ -174,9 +202,25 @@ export default function App() {
     }
   }, []);
 
+  const refreshTaskHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await getChatTasks({ limit: 12 });
+      setTaskHistory((res.items ?? []).filter((task) => task.status !== "awaiting_input"));
+    } catch {
+      setTaskHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const refreshTaskLists = useCallback(async () => {
+    await Promise.all([refreshPendingChats(), refreshTaskHistory()]);
+  }, [refreshPendingChats, refreshTaskHistory]);
+
   useEffect(() => {
-    void refreshPendingChats();
-  }, [refreshPendingChats]);
+    void refreshTaskLists();
+  }, [refreshTaskLists]);
 
   const buildResumeMessage = (state: ChatStateResponse) => {
     const graphHint = formatGraphSummary(state.graph_summary ?? null);
@@ -189,6 +233,7 @@ export default function App() {
     const restoredQuestion = state.task?.payload?.question || "已恢复中断任务";
     const restoredChunks = state.retrieved_chunks ?? [];
     setThreadId(restoredThreadId);
+    setInspectedTaskDetail(null);
     applyDiagnostics({
       graphSummary: state.graph_summary ?? null,
       retrievalSummary: state.retrieval_summary ?? state.task?.result?.retrieval_summary ?? null,
@@ -205,6 +250,20 @@ export default function App() {
     ]);
   };
 
+  const handleOpenTaskDetail = async (task: ChatTask) => {
+    setDetailLoadingId(task.task_id);
+    setError(null);
+    try {
+      const detail = await getChatTaskDetail(task.task_id);
+      setInspectedTaskDetail(detail);
+      setDiagnosticsOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDetailLoadingId(null);
+    }
+  };
+
   const handleResumePending = async (task: ChatTask) => {
     const resumeThreadId = task.thread_id || task.task_id;
     if (!resumeThreadId) return;
@@ -218,7 +277,7 @@ export default function App() {
       restorePendingTask(state);
     } catch (e) {
       setError(e instanceof Error ? e.message.trim() : String(e));
-      await refreshPendingChats();
+      await refreshTaskLists();
     } finally {
       setResumeLoadingId(null);
     }
@@ -236,7 +295,7 @@ export default function App() {
         content: "当前问答已暂存，可在左侧“待继续问答”中随时恢复。",
       },
     ]);
-    await refreshPendingChats();
+    await refreshTaskLists();
   };
 
   const handleIngest = async () => {
@@ -259,6 +318,7 @@ export default function App() {
     const q = question.trim();
     if (!q || phase === "loading") return;
     setError(null);
+    setInspectedTaskDetail(null);
     clearDiagnostics();
     setPhase("loading");
     setMessages((m) => [...m, { role: "user", content: q }]);
@@ -287,7 +347,7 @@ export default function App() {
               (graphHint ? `\n\n${graphHint}` : ""),
           },
         ]);
-        await refreshPendingChats();
+        await refreshTaskLists();
       } else if (res.status === "completed" && res.answer) {
         setPhase("done");
         setChunks([]);
@@ -295,14 +355,14 @@ export default function App() {
         const note = res.mode === "llm" && res.message ? `${res.message}\n\n` : "";
         const graphPrefix = graphHint ? `${graphHint}\n\n` : "";
         setMessages((m) => [...m, { role: "assistant", content: graphPrefix + note + res.answer }]);
-        await refreshPendingChats();
+        await refreshTaskLists();
       } else if (res.answer) {
         setPhase("done");
         setChunks([]);
         setSelectedId(null);
         const graphPrefix = graphHint ? `${graphHint}\n\n` : "";
         setMessages((m) => [...m, { role: "assistant", content: graphPrefix + res.answer }]);
-        await refreshPendingChats();
+        await refreshTaskLists();
       } else {
         setPhase("idle");
         setMessages((m) => [
@@ -323,6 +383,7 @@ export default function App() {
     if (!threadId || !selectedId) return;
     setPhase("loading");
     setError(null);
+    setInspectedTaskDetail(null);
     try {
       const res = await chatResume(threadId, [selectedId]);
       setPhase("done");
@@ -342,7 +403,7 @@ export default function App() {
           content: `${graphHint ? `${graphHint}\n\n` : ""}${res.answer || res.message || "未生成回答"}`,
         },
       ]);
-      await refreshPendingChats();
+      await refreshTaskLists();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase("select");
@@ -398,17 +459,32 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [mediaJob]);
 
-  const hasDiagnostics = Boolean(retrievalSummary || answerValidation || executionTrace.length > 0);
+  const detailGraphState = inspectedTaskDetail?.graph_state;
+  const detailTask = inspectedTaskDetail?.task ?? null;
+  const displayedGraphSummary = detailGraphState?.graph_summary ?? graphSummary;
+  const displayedRetrievalSummary =
+    detailGraphState?.retrieval_summary ?? detailTask?.result?.retrieval_summary ?? retrievalSummary;
+  const displayedAnswerValidation =
+    detailGraphState?.answer_validation ?? detailTask?.result?.answer_validation ?? answerValidation;
+  const displayedExecutionTrace =
+    detailGraphState?.execution_trace ?? detailTask?.result?.execution_trace ?? executionTrace;
+  const displayedFinalAnswer =
+    detailGraphState?.final_answer ?? detailTask?.result?.final_answer ?? null;
+  const displayedEvents: TaskEvent[] = inspectedTaskDetail?.events ?? [];
+
+  const hasDiagnostics = Boolean(
+    inspectedTaskDetail || displayedRetrievalSummary || displayedAnswerValidation || displayedExecutionTrace.length > 0
+  );
 
   const traceItems = useMemo(
     () =>
-      executionTrace.map((trace, index) => ({
+      displayedExecutionTrace.map((trace, index) => ({
         key: `${trace.node}-${trace.step}-${index}`,
         nodeLabel: TRACE_NODE_LABEL[trace.node] ?? trace.node,
         statusLabel: TRACE_STATUS_LABEL[trace.status] ?? trace.status,
         details: formatTraceDetails(trace),
       })),
-    [executionTrace]
+    [displayedExecutionTrace]
   );
 
   return (
@@ -470,6 +546,36 @@ export default function App() {
                   <span className="pending-title">{questionText}</span>
                   <span className="pending-meta">
                     {isLoading ? "恢复中…" : `状态：待选择 · ${formatTaskTime(task.updated_at || task.created_at)}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="panel pending-panel">
+          <h2>最近问答</h2>
+          <p className="hint">查看历史任务详情、评分结果和执行轨迹。</p>
+          {historyLoading ? <p className="pending-empty">正在加载历史任务…</p> : null}
+          {!historyLoading && taskHistory.length === 0 ? <p className="pending-empty">暂无历史任务</p> : null}
+          <div className="pending-list">
+            {taskHistory.map((task) => {
+              const isLoading = detailLoadingId === task.task_id;
+              const isInspecting = inspectedTaskDetail?.task.task_id === task.task_id;
+              const questionText = task.payload?.question || task.title;
+              return (
+                <button
+                  key={task.task_id}
+                  type="button"
+                  className={`pending-item${isInspecting ? " pending-item--active" : ""}`}
+                  onClick={() => void handleOpenTaskDetail(task)}
+                  disabled={isLoading}
+                >
+                  <span className="pending-title">{questionText}</span>
+                  <span className="pending-meta">
+                    {isLoading
+                      ? "加载详情中…"
+                      : `状态：${formatTaskStatus(task.status)} · ${formatTaskTime(task.updated_at || task.created_at)}`}
                   </span>
                 </button>
               );
@@ -778,28 +884,72 @@ export default function App() {
             </div>
 
             <div className="diagnostics__grid diagnostics__grid--drawer">
+              {detailTask ? (
+                <article className="diagnostics-card">
+                  <h4>任务摘要</h4>
+                  <div className="metrics-grid">
+                    <div className="metric-item">
+                      <span>任务状态</span>
+                      <strong>{formatTaskStatus(detailTask.status)}</strong>
+                    </div>
+                    <div className="metric-item">
+                      <span>当前轮次</span>
+                      <strong>
+                        {detailTask.current_step ?? detailTask.result?.loop_step ?? 0}/{detailTask.max_steps ?? "--"}
+                      </strong>
+                    </div>
+                    <div className="metric-item">
+                      <span>错误编码</span>
+                      <strong>{detailTask.error_code || detailTask.result?.warning_code || "--"}</strong>
+                    </div>
+                    <div className="metric-item">
+                      <span>更新时间</span>
+                      <strong>{formatTaskTime(detailTask.updated_at || detailTask.created_at) || "--"}</strong>
+                    </div>
+                  </div>
+                  <p className="diagnostics-text">问题：{detailTask.payload?.question || detailTask.title}</p>
+                  {detailTask.error_message || detailTask.result?.warning_message ? (
+                    <p className="diagnostics-text">说明：{detailTask.error_message || detailTask.result?.warning_message}</p>
+                  ) : null}
+                  {displayedFinalAnswer ? <p className="diagnostics-text">答案摘要：{displayedFinalAnswer.slice(0, 180)}</p> : null}
+                </article>
+              ) : null}
+
               <article className="diagnostics-card">
                 <h4>评分结果</h4>
                 <div className="score-grid">
                   <div className="score-item">
                     <span className="score-label">回答可信</span>
-                    <strong className={`score-value${answerValidation?.grounded ? " is-good" : ""}`}>
-                      {answerValidation ? formatBoolean(answerValidation.grounded) : "--"}
+                    <strong className={`score-value${displayedAnswerValidation?.grounded ? " is-good" : ""}`}>
+                      {displayedAnswerValidation ? formatBoolean(displayedAnswerValidation.grounded) : "--"}
                     </strong>
                   </div>
                   <div className="score-item">
                     <span className="score-label">Grounding Score</span>
-                    <strong className="score-value">{formatDecimal(answerValidation?.grounding_score)}</strong>
+                    <strong className="score-value">{formatDecimal(displayedAnswerValidation?.grounding_score)}</strong>
                   </div>
                   <div className="score-item">
                     <span className="score-label">参考重叠度</span>
-                    <strong className="score-value">{formatPercent(answerValidation?.reference_overlap)}</strong>
+                    <strong className="score-value">{formatPercent(displayedAnswerValidation?.reference_overlap)}</strong>
                   </div>
                   <div className="score-item">
                     <span className="score-label">问题覆盖度</span>
-                    <strong className="score-value">{formatPercent(answerValidation?.question_overlap)}</strong>
+                    <strong className="score-value">{formatPercent(displayedAnswerValidation?.question_overlap)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">证据覆盖</span>
+                    <strong className="score-value">{formatPercent(displayedAnswerValidation?.citation_coverage)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">支持 / 弱证据</span>
+                    <strong className="score-value">
+                      {(displayedAnswerValidation?.supported_claims ?? 0)}/{displayedAnswerValidation?.unsupported_claims ?? 0}
+                    </strong>
                   </div>
                 </div>
+                {displayedAnswerValidation?.weak_sentences?.length ? (
+                  <p className="diagnostics-text">弱证据语句：{displayedAnswerValidation.weak_sentences.join("；")}</p>
+                ) : null}
               </article>
 
               <article className="diagnostics-card">
@@ -807,49 +957,73 @@ export default function App() {
                 <div className="metrics-grid">
                   <div className="metric-item">
                     <span>路由策略</span>
-                    <strong>{retrievalSummary?.route_type || "--"}</strong>
+                    <strong>{displayedRetrievalSummary?.route_type || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>重试策略</span>
+                    <strong>{displayedRetrievalSummary?.retry_strategy || "--"}</strong>
                   </div>
                   <div className="metric-item">
                     <span>图谱文档</span>
-                    <strong>{retrievalSummary?.graph_documents ?? "--"}</strong>
+                    <strong>{displayedRetrievalSummary?.graph_documents ?? "--"}</strong>
                   </div>
                   <div className="metric-item">
                     <span>向量候选</span>
-                    <strong>{retrievalSummary?.vector_candidates ?? "--"}</strong>
+                    <strong>{displayedRetrievalSummary?.vector_candidates ?? "--"}</strong>
                   </div>
                   <div className="metric-item">
                     <span>关键词候选</span>
-                    <strong>{retrievalSummary?.lexical_candidates ?? "--"}</strong>
+                    <strong>{displayedRetrievalSummary?.lexical_candidates ?? "--"}</strong>
                   </div>
                   <div className="metric-item">
                     <span>最终候选</span>
-                    <strong>{retrievalSummary?.final_candidates ?? "--"}</strong>
-                  </div>
-                  <div className="metric-item">
-                    <span>缓存命中</span>
-                    <strong>
-                      {typeof retrievalSummary?.cache_hit === "boolean" ? formatBoolean(retrievalSummary.cache_hit) : "--"}
-                    </strong>
+                    <strong>{displayedRetrievalSummary?.final_candidates ?? "--"}</strong>
                   </div>
                 </div>
-                {retrievalSummary?.query_expansions?.length ? (
-                  <p className="diagnostics-text">查询扩展：{retrievalSummary.query_expansions.join("、")}</p>
+                {displayedRetrievalSummary?.query_expansions?.length ? (
+                  <p className="diagnostics-text">查询扩展：{displayedRetrievalSummary.query_expansions.join("、")}</p>
                 ) : null}
-                {retrievalSummary?.route_subjects?.length ? (
-                  <p className="diagnostics-text">学科路由：{retrievalSummary.route_subjects.join("、")}</p>
+                {displayedRetrievalSummary?.route_subjects?.length ? (
+                  <p className="diagnostics-text">学科路由：{displayedRetrievalSummary.route_subjects.join("、")}</p>
+                ) : null}
+                {displayedGraphSummary?.matched_concepts?.length ? (
+                  <p className="diagnostics-text">图谱命中：{displayedGraphSummary.matched_concepts.join("、")}</p>
                 ) : null}
               </article>
+
+              {displayedEvents.length ? (
+                <article className="diagnostics-card diagnostics-card--trace">
+                  <div className="trace-head">
+                    <h4>任务事件</h4>
+                    <span>{displayedEvents.length} 条事件</span>
+                  </div>
+                  <div className="trace-list">
+                    {displayedEvents.slice(-8).reverse().map((event) => (
+                      <div key={event.event_id} className="trace-item">
+                        <div className="trace-item__top">
+                          <span className="trace-step">{event.node || event.type}</span>
+                          <span className={`trace-status trace-status--${event.status || "running"}`}>
+                            {formatTaskStatus(event.status)}
+                          </span>
+                        </div>
+                        <div className="trace-node">{event.message}</div>
+                        <span className="trace-time">{formatTaskTime(event.created_at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ) : null}
             </div>
 
             <article className="diagnostics-card diagnostics-card--trace">
               <div className="trace-head">
                 <h4>执行规划步骤</h4>
-                <span>{executionTrace.length ? `${executionTrace.length} 个节点` : "暂无执行轨迹"}</span>
+                <span>{displayedExecutionTrace.length ? `${displayedExecutionTrace.length} 个节点` : "暂无执行轨迹"}</span>
               </div>
               {traceItems.length ? (
                 <div className="trace-list">
                   {traceItems.map((item, index) => {
-                    const trace = executionTrace[index];
+                    const trace = displayedExecutionTrace[index];
                     return (
                       <div key={item.key} className="trace-item">
                         <div className="trace-item__top">
