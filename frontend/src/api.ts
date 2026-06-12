@@ -215,6 +215,71 @@ export interface MediaJob {
   updated_at?: string;
 }
 
+export interface StockMetrics {
+  trend: number;
+  quality: number;
+  volume: number;
+  valuation: number;
+  catalyst: number;
+  risk: number;
+  confidence: number;
+  turnover_rate: number;
+}
+
+export interface StockPick {
+  rank: number;
+  symbol: string;
+  name: string;
+  sector: string;
+  board: string;
+  score: number;
+  style: string;
+  latest_price: number;
+  change_percent: number;
+  change_amount: number;
+  turnover_rate: number;
+  amplitude: number;
+  pe_dynamic: number | null;
+  pb_ratio: number | null;
+  total_market_cap: number;
+  circulating_market_cap: number;
+  amount: number;
+  volume: number;
+  open_price: number | null;
+  high_price: number | null;
+  low_price: number | null;
+  previous_close: number | null;
+  reasons: string[];
+  risk_flags: string[];
+  metrics: StockMetrics;
+}
+
+export interface StockMarketView {
+  trading_day: string;
+  market_temperature: number;
+  average_score: number;
+  style: string;
+  hot_sectors: string[];
+  summary: string;
+  up_count: number;
+  down_count: number;
+  rising_ratio: number;
+  universe_size: number;
+  candidate_size: number;
+}
+
+export interface DailyStockResponse {
+  generated_at: string;
+  trading_day: string;
+  title: string;
+  summary: string;
+  methodology: string[];
+  market_view: StockMarketView;
+  picks: StockPick[];
+  disclaimer: string;
+  data_source: string;
+}
+
 export async function getDailySchedule(): Promise<DailySchedule> {
   const r = await fetch(`${API}/daily-schedule`);
   if (!r.ok) throw new Error(await r.text());
@@ -276,6 +341,12 @@ export async function getPendingChatTasks(limit = 20): Promise<TaskListResponse>
 
 export async function getChatTaskDetail(taskId: string): Promise<ChatTaskDetailResponse> {
   const r = await fetch(`${API}/tasks/${taskId}/detail`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getDailyStockPicks(limit = 10): Promise<DailyStockResponse> {
+  const r = await fetch(`${API}/stocks/daily-picks?limit=${limit}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

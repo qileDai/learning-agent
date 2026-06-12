@@ -14,6 +14,7 @@ from app.rag.graph_store import graph_overview, search_graph
 from app.rag.ingest import ingest_knowledge_base
 from app.scheduler.daily_push import generate_daily_plan, get_push_history
 from app.scheduler.daily_schedule import get_today_schedule
+from app.stock_service import get_daily_stock_picks
 from app.task_store import (
     awaiting_input_task,
     cancel_task,
@@ -79,6 +80,14 @@ class AnswerEvalRequest(BaseModel):
 @router.get("/health")
 def health():
     return {"status": "ok", "service": "education-agent"}
+
+
+@router.get("/stocks/daily-picks")
+def daily_stock_picks(limit: int = Query(default=10, ge=1, le=10)):
+    try:
+        return get_daily_stock_picks(limit=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"股票实时数据暂不可用：{exc}") from exc
 
 
 @router.post("/ingest")

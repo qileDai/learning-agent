@@ -7,6 +7,7 @@ import {
   getChatState,
   getChatTaskDetail,
   getChatTasks,
+  getDailyStockPicks,
   getMediaJob,
   getPendingChatTasks,
   ingestKnowledge,
@@ -14,6 +15,7 @@ import {
   type ChatStateResponse,
   type ChatTask,
   type ChatTaskDetailResponse,
+  type DailyStockResponse,
   type ExecutionTrace,
   type GraphSummary,
   type MediaJob,
@@ -27,6 +29,7 @@ import "./App.css";
 type Message = { role: "user" | "assistant"; content: string };
 
 type VideoMode = "text-to-video" | "image-to-video";
+type WorkspaceView = "education" | "stocks";
 
 const TRACE_NODE_LABEL: Record<string, string> = {
   greeting: "寒暄识别",
@@ -66,6 +69,7 @@ const TRACE_DATA_LABEL: Record<string, string> = {
 };
 
 export default function App() {
+  const [activeView, setActiveView] = useState<WorkspaceView>("education");
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [chunks, setChunks] = useState<RetrievedChunk[]>([]);
@@ -96,6 +100,9 @@ export default function App() {
   const [mediaJob, setMediaJob] = useState<MediaJob | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaLoading, setMediaLoading] = useState(false);
+  const [stockBoard, setStockBoard] = useState<DailyStockResponse | null>(null);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
 
   const formatGraphSummary = (summary?: GraphSummary | null) => {
     if (!summary?.matched_concepts?.length) return "";
@@ -141,6 +148,41 @@ export default function App() {
   const formatDecimal = (value?: number | null) => {
     if (typeof value !== "number" || Number.isNaN(value)) return "--";
     return value.toFixed(3);
+  };
+
+  const formatStockScore = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return value.toFixed(1);
+  };
+
+  const formatStockPercent = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+  };
+
+  const formatStockPrice = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return `¥${value.toFixed(2)}`;
+  };
+
+  const formatStockMoney = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    const abs = Math.abs(value);
+    if (abs >= 100000000) return `${value >= 0 ? "+" : "-"}${(abs / 100000000).toFixed(2)}亿`;
+    if (abs >= 10000) return `${value >= 0 ? "+" : "-"}${(abs / 10000).toFixed(2)}万`;
+    return `${value >= 0 ? "+" : ""}${value.toFixed(0)}`;
+  };
+
+  const formatStockCap = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    return `${(value / 100000000).toFixed(1)}亿`;
+  };
+
+  const formatStockCount = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "--";
+    if (Math.abs(value) >= 100000000) return `${(value / 100000000).toFixed(2)}亿`;
+    if (Math.abs(value) >= 10000) return `${(value / 10000).toFixed(2)}万`;
+    return value.toFixed(0);
   };
 
   const formatBoolean = (value: boolean) => (value ? "是" : "否");
@@ -221,6 +263,24 @@ export default function App() {
   useEffect(() => {
     void refreshTaskLists();
   }, [refreshTaskLists]);
+
+  const refreshStockBoard = useCallback(async () => {
+    setStockLoading(true);
+    setStockError(null);
+    try {
+      const res = await getDailyStockPicks(10);
+      setStockBoard(res);
+    } catch (e) {
+      setStockError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStockLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeView !== "stocks" || stockBoard || stockLoading) return;
+    void refreshStockBoard();
+  }, [activeView, refreshStockBoard, stockBoard, stockLoading]);
 
   const buildResumeMessage = (state: ChatStateResponse) => {
     const graphHint = formatGraphSummary(state.graph_summary ?? null);
@@ -493,7 +553,8 @@ export default function App() {
         <header className="brand">
           <span className="logo">📚</span>
           <div>
-            <h1>教育智能体</h1>
+            <h1>智能工作台</h1>
+            <p>教育问答 · 素材生成 · 股票机会</p>
           </div>
         </header>
 
@@ -591,268 +652,433 @@ export default function App() {
       </aside>
 
       <main className="chat">
-        <section className="media-studio">
-          <div className="media-studio__header">
-            <div>
-              <h2>AI 图片 / 视频工作台</h2>
-              <p>老师只要描述想表达什么，就能快速生成宣传图或教学视频素材。</p>
-            </div>
-            {mediaJob?.message ? <span className="media-badge">{mediaJob.message}</span> : null}
+        <section className="workspace-header">
+          <div>
+            <h2>{activeView === "education" ? "教育智能体工作台" : "股票潜力榜"}</h2>
+            <p>
+              {activeView === "education"
+                ? "知识问答、素材生成与任务回看统一放在一个工作台里。"
+                : "接入实时 A 股行情后生成最有潜力的 10 只股票，便于快速浏览机会与风险。"}
+            </p>
           </div>
-
-          <div className="media-grid">
-            <div className="media-form card">
-              <label className="field">
-                <span>素材文案</span>
-                <textarea
-                  value={mediaPrompt}
-                  onChange={(e) => setMediaPrompt(e.target.value)}
-                  placeholder="例如：为小学历史公开课生成一张课堂活动宣传图，突出中国古代文明、互动闯关、金色国风海报感。"
-                  rows={4}
-                />
-              </label>
-
-              <div className="field-row">
-                <label className="field">
-                  <span>图片风格</span>
-                  <input value={imageStyle} onChange={(e) => setImageStyle(e.target.value)} placeholder="课堂活动宣传海报" />
-                </label>
-                <label className="field">
-                  <span>图片比例</span>
-                  <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                    <option value="16:9">16:9</option>
-                    <option value="4:3">4:3</option>
-                    <option value="1:1">1:1</option>
-                    <option value="9:16">9:16</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="field-row">
-                <label className="field">
-                  <span>视频模式</span>
-                  <select value={videoMode} onChange={(e) => setVideoMode(e.target.value as VideoMode)}>
-                    <option value="text-to-video">文本生成视频</option>
-                    <option value="image-to-video">图片转视频</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>视频时长</span>
-                  <select
-                    value={durationSeconds}
-                    onChange={(e) => setDurationSeconds(Number(e.target.value))}
-                  >
-                    <option value={4}>4 秒</option>
-                    <option value={6}>6 秒</option>
-                    <option value={8}>8 秒</option>
-                    <option value={10}>10 秒</option>
-                  </select>
-                </label>
-              </div>
-
-              {videoMode === "image-to-video" && (
-                <label className="field">
-                  <span>源图片地址</span>
-                  <input
-                    value={sourceImageUrl}
-                    onChange={(e) => setSourceImageUrl(e.target.value)}
-                    placeholder="先生成图片，或粘贴已有图片 URL"
-                  />
-                </label>
-              )}
-
-              <div className="media-actions">
-                <button
-                  type="button"
-                  className="btn primary"
-                  onClick={handleGenerateImage}
-                  disabled={mediaLoading || !mediaPrompt.trim()}
-                >
-                  {mediaLoading ? "生成中…" : "生成图片"}
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary media-action-secondary"
-                  onClick={handleGenerateVideo}
-                  disabled={
-                    mediaLoading ||
-                    !mediaPrompt.trim() ||
-                    (videoMode === "image-to-video" && !sourceImageUrl.trim())
-                  }
-                >
-                  生成视频
-                </button>
-              </div>
-
-              <div className="scene-list">
-                <button
-                  type="button"
-                  className="scene-chip"
-                  onClick={() => {
-                    setMediaPrompt("为七年级历史公开课设计一张课堂活动宣传图，突出古代中国文明、团队闯关、金色国风风格。");
-                    setImageStyle("国风课堂海报");
-                    setAspectRatio("16:9");
-                  }}
-                >
-                  课堂活动宣传图
-                </button>
-                <button
-                  type="button"
-                  className="scene-chip"
-                  onClick={() => {
-                    setMediaPrompt("生成一条 6 秒教学短视频，展示老师讲解牛顿第二定律、学生互动实验、结尾出现课堂口号。");
-                    setVideoMode("text-to-video");
-                    setDurationSeconds(6);
-                  }}
-                >
-                  教学短视频
-                </button>
-              </div>
-            </div>
-
-            <div className="media-preview card">
-              <div className="preview-head">
-                <h3>生成结果</h3>
-                {mediaJob ? (
-                  <span className="preview-meta">
-                    {mediaJob.provider}
-                    {mediaJob.provider_model ? ` · ${mediaJob.provider_model}` : ""}
-                  </span>
-                ) : null}
-              </div>
-
-              {!mediaJob && <p className="placeholder">输入一句话，立即生成宣传图或视频素材。</p>}
-
-              {mediaJob?.image_url && (
-                <div className="media-block">
-                  <img className="media-image" src={mediaJob.image_url} alt={mediaJob.prompt} />
-                  <a href={mediaJob.image_url} target="_blank" rel="noreferrer">
-                    打开图片
-                  </a>
-                </div>
-              )}
-
-              {mediaJob?.preview_url && !mediaJob.image_url && (
-                <div className="media-block">
-                  <img className="media-image" src={mediaJob.preview_url} alt={mediaJob.prompt} />
-                </div>
-              )}
-
-              {mediaJob?.video_url && (
-                <div className="media-block">
-                  <video className="media-video" src={mediaJob.video_url} controls playsInline />
-                  <a href={mediaJob.video_url} target="_blank" rel="noreferrer">
-                    打开视频
-                  </a>
-                </div>
-              )}
-
-              {mediaJob?.storyboard && (
-                <div className="storyboard">
-                  <h4>视频分镜</h4>
-                  <pre>{mediaJob.storyboard}</pre>
-                </div>
-              )}
-
-              {mediaJob?.status === "processing" && <p className="status">素材任务处理中，系统会自动轮询结果。</p>}
-              {mediaError && <p className="error media-error">{mediaError}</p>}
-            </div>
+          <div className="workspace-tabs">
+            <button
+              type="button"
+              className={`workspace-tab${activeView === "education" ? " workspace-tab--active" : ""}`}
+              onClick={() => setActiveView("education")}
+            >
+              教育智能体
+            </button>
+            <button
+              type="button"
+              className={`workspace-tab${activeView === "stocks" ? " workspace-tab--active" : ""}`}
+              onClick={() => setActiveView("stocks")}
+            >
+              股票机会
+            </button>
           </div>
         </section>
 
-        <div className="messages">
-          {messages.length === 0 && (
-            <div className="empty">
-              <p>向智能体提问，例如：</p>
-              <ul>
-                <li>Python 列表推导式怎么写？</li>
-                <li>牛顿第二定律公式是什么？</li>
-                <li>古诗词中「月」意象常表示什么？</li>
-              </ul>
-            </div>
-          )}
-          {messages.map((msg, i) => (
-            <div key={i} className={`bubble ${msg.role}`}>
-              {msg.content}
-            </div>
-          ))}
-        </div>
-
-        {phase === "select" && chunks.length > 0 && (
-          <section className="chunk-picker">
-            <div className="chunk-picker__header">
-              <div>
-                <h3>单选一条参考资料</h3>
-                <p className="chunk-picker__hint">当前会话已进入人工中断状态，可暂存后稍后继续。</p>
+        {activeView === "education" ? (
+          <>
+            <section className="media-studio">
+              <div className="media-studio__header">
+                <div>
+                  <h2>AI 图片 / 视频工作台</h2>
+                  <p>老师只要描述想表达什么，就能快速生成宣传图或教学视频素材。</p>
+                </div>
+                {mediaJob?.message ? <span className="media-badge">{mediaJob.message}</span> : null}
               </div>
-              <button type="button" className="btn secondary chunk-picker__pause" onClick={handlePauseSelection}>
-                稍后继续
-              </button>
-            </div>
-            <div className="chunk-list">
-              {chunks.map((c) => (
-                <label key={c.id} className={`chunk-item ${selectedId === c.id ? "selected" : ""}`}>
-                  <input
-                    type="radio"
-                    name="kb-chunk"
-                    checked={selectedId === c.id}
-                    onChange={() => setSelectedId(c.id)}
-                  />
-                  <span className="meta">
-                    {c.source} · {c.file_type}
-                    {c.subject ? ` · ${c.subject}` : ""}
-                    {c.chapter ? ` · ${c.chapter}` : ""}
-                    {c.retrieval_mode ? ` · ${c.retrieval_mode}` : ""}
-                  </span>
-                  {c.concepts?.length ? <span className="meta">概念：{c.concepts.join("、")}</span> : null}
-                  <p>
-                    {c.content.slice(0, 200)}
-                    {c.content.length > 200 ? "…" : ""}
-                  </p>
-                </label>
+
+              <div className="media-grid">
+                <div className="media-form card">
+                  <label className="field">
+                    <span>素材文案</span>
+                    <textarea
+                      value={mediaPrompt}
+                      onChange={(e) => setMediaPrompt(e.target.value)}
+                      placeholder="例如：为小学历史公开课生成一张课堂活动宣传图，突出中国古代文明、互动闯关、金色国风海报感。"
+                      rows={4}
+                    />
+                  </label>
+
+                  <div className="field-row">
+                    <label className="field">
+                      <span>图片风格</span>
+                      <input value={imageStyle} onChange={(e) => setImageStyle(e.target.value)} placeholder="课堂活动宣传海报" />
+                    </label>
+                    <label className="field">
+                      <span>图片比例</span>
+                      <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                        <option value="16:9">16:9</option>
+                        <option value="4:3">4:3</option>
+                        <option value="1:1">1:1</option>
+                        <option value="9:16">9:16</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="field-row">
+                    <label className="field">
+                      <span>视频模式</span>
+                      <select value={videoMode} onChange={(e) => setVideoMode(e.target.value as VideoMode)}>
+                        <option value="text-to-video">文本生成视频</option>
+                        <option value="image-to-video">图片转视频</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>视频时长</span>
+                      <select
+                        value={durationSeconds}
+                        onChange={(e) => setDurationSeconds(Number(e.target.value))}
+                      >
+                        <option value={4}>4 秒</option>
+                        <option value={6}>6 秒</option>
+                        <option value={8}>8 秒</option>
+                        <option value={10}>10 秒</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {videoMode === "image-to-video" && (
+                    <label className="field">
+                      <span>源图片地址</span>
+                      <input
+                        value={sourceImageUrl}
+                        onChange={(e) => setSourceImageUrl(e.target.value)}
+                        placeholder="先生成图片，或粘贴已有图片 URL"
+                      />
+                    </label>
+                  )}
+
+                  <div className="media-actions">
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={handleGenerateImage}
+                      disabled={mediaLoading || !mediaPrompt.trim()}
+                    >
+                      {mediaLoading ? "生成中…" : "生成图片"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn secondary media-action-secondary"
+                      onClick={handleGenerateVideo}
+                      disabled={
+                        mediaLoading ||
+                        !mediaPrompt.trim() ||
+                        (videoMode === "image-to-video" && !sourceImageUrl.trim())
+                      }
+                    >
+                      生成视频
+                    </button>
+                  </div>
+
+                  <div className="scene-list">
+                    <button
+                      type="button"
+                      className="scene-chip"
+                      onClick={() => {
+                        setMediaPrompt("为七年级历史公开课设计一张课堂活动宣传图，突出古代中国文明、团队闯关、金色国风风格。");
+                        setImageStyle("国风课堂海报");
+                        setAspectRatio("16:9");
+                      }}
+                    >
+                      课堂活动宣传图
+                    </button>
+                    <button
+                      type="button"
+                      className="scene-chip"
+                      onClick={() => {
+                        setMediaPrompt("生成一条 6 秒教学短视频，展示老师讲解牛顿第二定律、学生互动实验、结尾出现课堂口号。");
+                        setVideoMode("text-to-video");
+                        setDurationSeconds(6);
+                      }}
+                    >
+                      教学短视频
+                    </button>
+                  </div>
+                </div>
+
+                <div className="media-preview card">
+                  <div className="preview-head">
+                    <h3>生成结果</h3>
+                    {mediaJob ? (
+                      <span className="preview-meta">
+                        {mediaJob.provider}
+                        {mediaJob.provider_model ? ` · ${mediaJob.provider_model}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {!mediaJob && <p className="placeholder">输入一句话，立即生成宣传图或视频素材。</p>}
+
+                  {mediaJob?.image_url && (
+                    <div className="media-block">
+                      <img className="media-image" src={mediaJob.image_url} alt={mediaJob.prompt} />
+                      <a href={mediaJob.image_url} target="_blank" rel="noreferrer">
+                        打开图片
+                      </a>
+                    </div>
+                  )}
+
+                  {mediaJob?.preview_url && !mediaJob.image_url && (
+                    <div className="media-block">
+                      <img className="media-image" src={mediaJob.preview_url} alt={mediaJob.prompt} />
+                    </div>
+                  )}
+
+                  {mediaJob?.video_url && (
+                    <div className="media-block">
+                      <video className="media-video" src={mediaJob.video_url} controls playsInline />
+                      <a href={mediaJob.video_url} target="_blank" rel="noreferrer">
+                        打开视频
+                      </a>
+                    </div>
+                  )}
+
+                  {mediaJob?.storyboard && (
+                    <div className="storyboard">
+                      <h4>视频分镜</h4>
+                      <pre>{mediaJob.storyboard}</pre>
+                    </div>
+                  )}
+
+                  {mediaJob?.status === "processing" && <p className="status">素材任务处理中，系统会自动轮询结果。</p>}
+                  {mediaError && <p className="error media-error">{mediaError}</p>}
+                </div>
+              </div>
+            </section>
+
+            <div className="messages">
+              {messages.length === 0 && (
+                <div className="empty">
+                  <p>向智能体提问，例如：</p>
+                  <ul>
+                    <li>Python 列表推导式怎么写？</li>
+                    <li>牛顿第二定律公式是什么？</li>
+                    <li>古诗词中「月」意象常表示什么？</li>
+                  </ul>
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div key={i} className={`bubble ${msg.role}`}>
+                  {msg.content}
+                </div>
               ))}
             </div>
-            <div className="chunk-picker__actions">
+
+            {phase === "select" && chunks.length > 0 && (
+              <section className="chunk-picker">
+                <div className="chunk-picker__header">
+                  <div>
+                    <h3>单选一条参考资料</h3>
+                    <p className="chunk-picker__hint">当前会话已进入人工中断状态，可暂存后稍后继续。</p>
+                  </div>
+                  <button type="button" className="btn secondary chunk-picker__pause" onClick={handlePauseSelection}>
+                    稍后继续
+                  </button>
+                </div>
+                <div className="chunk-list">
+                  {chunks.map((c) => (
+                    <label key={c.id} className={`chunk-item ${selectedId === c.id ? "selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="kb-chunk"
+                        checked={selectedId === c.id}
+                        onChange={() => setSelectedId(c.id)}
+                      />
+                      <span className="meta">
+                        {c.source} · {c.file_type}
+                        {c.subject ? ` · ${c.subject}` : ""}
+                        {c.chapter ? ` · ${c.chapter}` : ""}
+                        {c.retrieval_mode ? ` · ${c.retrieval_mode}` : ""}
+                      </span>
+                      {c.concepts?.length ? <span className="meta">概念：{c.concepts.join("、")}</span> : null}
+                      <p>
+                        {c.content.slice(0, 200)}
+                        {c.content.length > 200 ? "…" : ""}
+                      </p>
+                    </label>
+                  ))}
+                </div>
+                <div className="chunk-picker__actions">
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={handleConfirmSelection}
+                    disabled={!selectedId}
+                  >
+                    基于所选资料生成解答
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {error && <p className="error">{error}</p>}
+
+            <footer className="composer">
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="输入学习问题…"
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleAsk();
+                  }
+                }}
+                disabled={phase === "loading"}
+              />
               <button
                 type="button"
                 className="btn primary"
-                onClick={handleConfirmSelection}
-                disabled={!selectedId}
+                onClick={() => void handleAsk()}
+                disabled={phase === "loading" || !question.trim()}
               >
-                基于所选资料生成解答
+                {phase === "loading" ? "处理中…" : "提问"}
               </button>
+            </footer>
+          </>
+        ) : (
+          <section className="stock-page">
+            <div className="stock-hero card">
+              <div>
+                <h3>{stockBoard?.title || "今日潜力股 Top 10"}</h3>
+                <p className="placeholder">{stockBoard?.summary || "按实时行情、量能、估值、行业热度和风险惩罚做综合打分。"}</p>
+              </div>
+              <div className="stock-hero__actions">
+                <span className="stock-date">{stockBoard ? `交易日：${stockBoard.trading_day} · 数据源：${stockBoard.data_source}` : "等待生成榜单"}</span>
+                <button type="button" className="btn secondary stock-refresh" onClick={() => void refreshStockBoard()} disabled={stockLoading}>
+                  {stockLoading ? "分析中…" : "刷新榜单"}
+                </button>
+              </div>
             </div>
+
+            {stockError ? <p className="error">{stockError}</p> : null}
+
+            {stockBoard ? (
+              <>
+                <div className="stock-overview">
+                  <article className="card stock-metric-card">
+                    <span>市场温度</span>
+                    <strong>{formatStockScore(stockBoard.market_view.market_temperature)}</strong>
+                    <p>{stockBoard.market_view.style}</p>
+                  </article>
+                  <article className="card stock-metric-card">
+                    <span>上涨家数 / 候选池</span>
+                    <strong>{stockBoard.market_view.up_count} / {stockBoard.market_view.candidate_size}</strong>
+                    <p>全市场样本 {stockBoard.market_view.universe_size} 只，上涨占比 {stockBoard.market_view.rising_ratio}%</p>
+                  </article>
+                  <article className="card stock-metric-card">
+                    <span>热点方向</span>
+                    <strong>{stockBoard.market_view.hot_sectors.join(" / ") || "--"}</strong>
+                    <p>{stockBoard.market_view.summary}</p>
+                  </article>
+                </div>
+
+                <div className="stock-grid">
+                  <article className="card stock-methodology">
+                    <h3>分析框架</h3>
+                    <ul className="stock-list">
+                      {stockBoard.methodology.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    <p className="placeholder stock-disclaimer">{stockBoard.disclaimer}</p>
+                  </article>
+
+                  <article className="card stock-ranking">
+                    <h3>今日最有潜力的 10 只股票</h3>
+                    <div className="stock-ranking__list">
+                      {stockBoard.picks.map((pick) => (
+                        <div key={pick.symbol} className="stock-row">
+                          <div className="stock-row__main">
+                            <div className="stock-row__title">
+                              <span className="stock-rank">#{pick.rank}</span>
+                              <div>
+                                <strong>{pick.name}</strong>
+                                <p>{pick.symbol} · {pick.sector} · {pick.board}</p>
+                              </div>
+                            </div>
+                            <div className="stock-score-group">
+                              <span className="stock-style">{pick.style}</span>
+                              <strong className="stock-score">{formatStockScore(pick.score)}</strong>
+                            </div>
+                          </div>
+                          <div className="stock-tags">
+                            <span>现价 {formatStockPrice(pick.latest_price)}</span>
+                            <span>涨跌 {formatStockPercent(pick.change_percent)}</span>
+                            <span>换手 {formatStockPercent(pick.turnover_rate)}</span>
+                            <span>振幅 {formatStockPercent(pick.amplitude)}</span>
+                            <span>PE {formatStockScore(pick.pe_dynamic)}</span>
+                            <span>PB {formatStockScore(pick.pb_ratio)}</span>
+                            <span>成交额 {formatStockMoney(pick.amount)}</span>
+                          </div>
+                          <div className="stock-tags">
+                            <span>趋势 {formatStockScore(pick.metrics.trend)}</span>
+                            <span>质量 {formatStockScore(pick.metrics.quality)}</span>
+                            <span>量能 {formatStockScore(pick.metrics.volume)}</span>
+                            <span>估值 {formatStockScore(pick.metrics.valuation)}</span>
+                            <span>催化 {formatStockScore(pick.metrics.catalyst)}</span>
+                            <span>风险 {formatStockScore(pick.metrics.risk)}</span>
+                          </div>
+                          <div className="stock-detail-grid">
+                            <div>
+                              <h4>实时面板</h4>
+                              <ul className="stock-list">
+                                <li>昨收：{formatStockPrice(pick.previous_close)}</li>
+                                <li>今开：{formatStockPrice(pick.open_price)}</li>
+                                <li>最高：{formatStockPrice(pick.high_price)}</li>
+                                <li>最低：{formatStockPrice(pick.low_price)}</li>
+                                <li>成交量：{formatStockCount(pick.volume)}</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <h4>入选理由</h4>
+                              <ul className="stock-list">
+                                {pick.reasons.map((reason) => (
+                                  <li key={reason}>{reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h4>风险提示</h4>
+                              <ul className="stock-list stock-list--risk">
+                                {pick.risk_flags.map((risk) => (
+                                  <li key={risk}>{risk}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h4>综合判断</h4>
+                              <ul className="stock-list">
+                                <li>综合机会分：{formatStockScore(pick.score)}</li>
+                                <li>模型置信度：{formatStockScore(pick.metrics.confidence)}</li>
+                                <li>当前风格：{pick.style}</li>
+                                <li>日涨跌额：{formatStockPrice(pick.change_amount)}</li>
+                                <li>总市值：{formatStockCap(pick.total_market_cap)}</li>
+                                <li>流通市值：{formatStockCap(pick.circulating_market_cap)}</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                </div>
+              </>
+            ) : (
+              <div className="card stock-empty">
+                <p className="placeholder">{stockLoading ? "系统正在分析今日最有潜力的股票，请稍候…" : "点击刷新按钮生成今日榜单。"}</p>
+              </div>
+            )}
           </section>
         )}
-
-        {error && <p className="error">{error}</p>}
-
-        <footer className="composer">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="输入学习问题…"
-            rows={2}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void handleAsk();
-              }
-            }}
-            disabled={phase === "loading"}
-          />
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void handleAsk()}
-            disabled={phase === "loading" || !question.trim()}
-          >
-            {phase === "loading" ? "处理中…" : "提问"}
-          </button>
-        </footer>
       </main>
 
-      {hasDiagnostics ? (
+      {activeView === "education" && hasDiagnostics ? (
         <button
           type="button"
           className="diagnostics-trigger"
@@ -862,7 +1088,7 @@ export default function App() {
         </button>
       ) : null}
 
-      {hasDiagnostics && diagnosticsOpen ? (
+      {activeView === "education" && hasDiagnostics && diagnosticsOpen ? (
         <div className="diagnostics-drawer__backdrop" onClick={() => setDiagnosticsOpen(false)}>
           <aside
             className="diagnostics-drawer"
