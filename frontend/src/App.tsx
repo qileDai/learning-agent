@@ -8,17 +8,22 @@ import {
   getChatTaskDetail,
   getChatTasks,
   getDailyStockPicks,
+  getFailureSamples,
   getMediaJob,
   getPendingChatTasks,
   ingestKnowledge,
+  runRetrievalEval,
   type AnswerValidation,
   type ChatStateResponse,
   type ChatTask,
   type ChatTaskDetailResponse,
   type DailyStockResponse,
   type ExecutionTrace,
+  type FailureSamplesResponse,
   type GraphSummary,
   type MediaJob,
+  type RetrievalEvalCase,
+  type RetrievalEvalResponse,
   type RetrievalSummary,
   type RetrievedChunk,
   type TaskEvent,
@@ -90,6 +95,11 @@ export default function App() {
   const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null);
   const [inspectedTaskDetail, setInspectedTaskDetail] = useState<ChatTaskDetailResponse | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+  const [failureSamples, setFailureSamples] = useState<FailureSamplesResponse | null>(null);
+  const [failureLoading, setFailureLoading] = useState(false);
+  const [failureEval, setFailureEval] = useState<RetrievalEvalResponse | null>(null);
+  const [failureEvalLoading, setFailureEvalLoading] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
 
   const [mediaPrompt, setMediaPrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("课堂活动宣传海报");
@@ -187,6 +197,23 @@ export default function App() {
 
   const formatBoolean = (value: boolean) => (value ? "是" : "否");
 
+  const formatJoined = (items?: Array<string | null | undefined>, empty = "--") => {
+    const values = (items ?? []).map((item) => String(item || "").trim()).filter(Boolean);
+    return values.length ? values.join("、") : empty;
+  };
+
+  const buildFailureEvalCases = (samples?: FailureSamplesResponse | null): RetrievalEvalCase[] => {
+    return (samples?.items ?? [])
+      .map((item) => ({
+        question: item.question,
+        expected_sources: item.retrieval_summary?.evidence_sources ?? [],
+        expected_terms: item.missing_aspects ?? [],
+        gold_answer: item.answer?.trim() ? item.answer : undefined,
+      }))
+      .filter((item) => item.question && ((item.expected_sources?.length ?? 0) > 0 || (item.expected_terms?.length ?? 0) > 0 || item.gold_answer))
+      .slice(0, 8);
+  };
+
   const normalizeTraceValue = (value: unknown): string => {
     if (value == null) return "";
     if (Array.isArray(value)) return value.map((item) => normalizeTraceValue(item)).filter(Boolean).join("、");
@@ -260,9 +287,48 @@ export default function App() {
     await Promise.all([refreshPendingChats(), refreshTaskHistory()]);
   }, [refreshPendingChats, refreshTaskHistory]);
 
+  const refreshFailureCases = useCallback(async () => {
+    setFailureLoading(true);
+    setEvalError(null);
+    try {
+      const res = await getFailureSamples(12, true);
+      setFailureSamples(res);
+      return res;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setEvalError(message);
+      return null;
+    } finally {
+      setFailureLoading(false);
+    }
+  }, []);
+
+  const handleRunFailureEval = useCallback(async () => {
+    setFailureEvalLoading(true);
+    setEvalError(null);
+    try {
+      const samples = failureSamples ?? (await refreshFailureCases());
+      const cases = buildFailureEvalCases(samples);
+      if (!cases.length) {
+        throw new Error("当前没有可回流的失败样本，先产生失败样本或刷新列表后再试。");
+      }
+      const result = await runRetrievalEval(cases, 3);
+      setFailureEval(result);
+    } catch (e) {
+      setEvalError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFailureEvalLoading(false);
+    }
+  }, [failureSamples, refreshFailureCases]);
+
   useEffect(() => {
     void refreshTaskLists();
   }, [refreshTaskLists]);
+
+  useEffect(() => {
+    if (activeView !== "education" || failureSamples || failureLoading) return;
+    void refreshFailureCases();
+  }, [activeView, failureLoading, failureSamples, refreshFailureCases]);
 
   const refreshStockBoard = useCallback(async () => {
     setStockLoading(true);
@@ -547,6 +613,10 @@ export default function App() {
     [displayedExecutionTrace]
   );
 
+  const failureReasonEntries = useMemo(() => Object.entries(failureSamples?.by_reason ?? {}).slice(0, 4), [failureSamples]);
+  const failurePreviewItems = failureSamples?.items.slice(0, 3) ?? [];
+  const failureEvalPreview = failureEval?.items.slice(0, 4) ?? [];
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -642,6 +712,89 @@ export default function App() {
               );
             })}
           </div>
+        </section>
+
+        <section className="panel eval-panel">
+          <h2>评测面板</h2>
+          <p className="hint">把失败问答回流成检索评测样本，快速查看命中率、MRR 和 grounded 表现。</p>
+          <div className="eval-actions">
+            <button type="button" className="btn secondary" onClick={() => void refreshFailureCases()} disabled={failureLoading}>
+              {failureLoading ? "刷新中…" : "刷新失败样本"}
+            </button>
+            <button type="button" className="btn secondary" onClick={() => void handleRunFailureEval()} disabled={failureEvalLoading || failureLoading}>
+              {failureEvalLoading ? "评测中…" : "回流评测"}
+            </button>
+          </div>
+          {evalError ? <p className="error eval-error">{evalError}</p> : null}
+          {failureSamples ? (
+            <>
+              <div className="eval-summary-grid">
+                <div className="metric-item">
+                  <span>失败样本</span>
+                  <strong>{failureSamples.total}</strong>
+                </div>
+                <div className="metric-item">
+                  <span>导出文件</span>
+                  <strong>{failureSamples.file ? "已写入" : "未写入"}</strong>
+                </div>
+              </div>
+              {failureReasonEntries.length ? (
+                <div className="diagnostics-tags">
+                  {failureReasonEntries.map(([reason, count]) => (
+                    <span key={reason} className="diagnostics-tag">{reason} · {count}</span>
+                  ))}
+                </div>
+              ) : null}
+              {failurePreviewItems.length ? (
+                <div className="eval-list">
+                  {failurePreviewItems.map((item) => (
+                    <div key={item.task_id} className="eval-item">
+                      <strong>{item.question}</strong>
+                      <span className="pending-meta">
+                        {item.reason_code} · 缺失维度：{formatJoined(item.missing_aspects, "无")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="pending-empty">暂无失败样本</p>
+              )}
+            </>
+          ) : null}
+          {failureEval ? (
+            <>
+              <div className="eval-summary-grid">
+                <div className="metric-item">
+                  <span>Hit@K</span>
+                  <strong>{formatPercent(failureEval.hit_at_k)}</strong>
+                </div>
+                <div className="metric-item">
+                  <span>MRR</span>
+                  <strong>{formatDecimal(failureEval.mrr)}</strong>
+                </div>
+                <div className="metric-item">
+                  <span>Grounding 均值</span>
+                  <strong>{formatDecimal(failureEval.avg_grounding_score)}</strong>
+                </div>
+                <div className="metric-item">
+                  <span>评测样本</span>
+                  <strong>{failureEval.total}</strong>
+                </div>
+              </div>
+              {failureEvalPreview.length ? (
+                <div className="eval-list">
+                  {failureEvalPreview.map((item) => (
+                    <div key={`${item.index}-${item.question}`} className="eval-item">
+                      <strong>{item.hit ? "命中" : "未命中"} · {item.question}</strong>
+                      <span className="pending-meta">
+                        检索来源：{formatJoined(item.retrieved_sources, "无")} · 维度：{formatJoined(item.expected_aspects, "无")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </section>
 
         <section className="panel push-panel">
@@ -893,6 +1046,9 @@ export default function App() {
                         {c.subject ? ` · ${c.subject}` : ""}
                         {c.chapter ? ` · ${c.chapter}` : ""}
                         {c.retrieval_mode ? ` · ${c.retrieval_mode}` : ""}
+                      </span>
+                      <span className="meta">
+                        排序分：{formatDecimal(c.rank_score)} · 覆盖分：{formatDecimal(c.coverage_score ?? null)}
                       </span>
                       {c.concepts?.length ? <span className="meta">概念：{c.concepts.join("、")}</span> : null}
                       <p>
@@ -1151,6 +1307,10 @@ export default function App() {
                     </strong>
                   </div>
                   <div className="score-item">
+                    <span className="score-label">答案类型</span>
+                    <strong className="score-value">{displayedAnswerValidation?.answer_type || "--"}</strong>
+                  </div>
+                  <div className="score-item">
                     <span className="score-label">Grounding Score</span>
                     <strong className="score-value">{formatDecimal(displayedAnswerValidation?.grounding_score)}</strong>
                   </div>
@@ -1167,12 +1327,31 @@ export default function App() {
                     <strong className="score-value">{formatPercent(displayedAnswerValidation?.citation_coverage)}</strong>
                   </div>
                   <div className="score-item">
+                    <span className="score-label">维度覆盖</span>
+                    <strong className="score-value">{formatPercent(displayedAnswerValidation?.aspect_coverage)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">事实覆盖</span>
+                    <strong className="score-value">{formatPercent(displayedAnswerValidation?.fact_coverage)}</strong>
+                  </div>
+                  <div className="score-item">
+                    <span className="score-label">使用事实数</span>
+                    <strong className="score-value">{displayedAnswerValidation?.used_facts ?? "--"}</strong>
+                  </div>
+                  <div className="score-item">
                     <span className="score-label">支持 / 弱证据</span>
                     <strong className="score-value">
                       {(displayedAnswerValidation?.supported_claims ?? 0)}/{displayedAnswerValidation?.unsupported_claims ?? 0}
                     </strong>
                   </div>
                 </div>
+                {displayedAnswerValidation?.missing_aspects?.length ? (
+                  <div className="diagnostics-tags">
+                    {displayedAnswerValidation.missing_aspects.map((aspect) => (
+                      <span key={aspect} className="diagnostics-tag diagnostics-tag--warn">缺失：{aspect}</span>
+                    ))}
+                  </div>
+                ) : null}
                 {displayedAnswerValidation?.weak_sentences?.length ? (
                   <p className="diagnostics-text">弱证据语句：{displayedAnswerValidation.weak_sentences.join("；")}</p>
                 ) : null}
@@ -1186,8 +1365,32 @@ export default function App() {
                     <strong>{displayedRetrievalSummary?.route_type || "--"}</strong>
                   </div>
                   <div className="metric-item">
+                    <span>答案类型</span>
+                    <strong>{displayedRetrievalSummary?.answer_type || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
                     <span>重试策略</span>
                     <strong>{displayedRetrievalSummary?.retry_strategy || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>缓存策略</span>
+                    <strong>{displayedRetrievalSummary?.cache_policy || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>缓存风险</span>
+                    <strong>{displayedRetrievalSummary?.cache_risk || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>命中缓存</span>
+                    <strong>{typeof displayedRetrievalSummary?.cache_hit === "boolean" ? formatBoolean(displayedRetrievalSummary.cache_hit) : "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>选证方式</span>
+                    <strong>{displayedRetrievalSummary?.selected_by || "--"}</strong>
+                  </div>
+                  <div className="metric-item">
+                    <span>选证置信度</span>
+                    <strong>{formatPercent(displayedRetrievalSummary?.selection_confidence)}</strong>
                   </div>
                   <div className="metric-item">
                     <span>图谱文档</span>
@@ -1211,6 +1414,19 @@ export default function App() {
                 ) : null}
                 {displayedRetrievalSummary?.route_subjects?.length ? (
                   <p className="diagnostics-text">学科路由：{displayedRetrievalSummary.route_subjects.join("、")}</p>
+                ) : null}
+                {displayedRetrievalSummary?.planner_queries?.length ? (
+                  <p className="diagnostics-text">规划查询：{displayedRetrievalSummary.planner_queries.join(" ｜ ")}</p>
+                ) : null}
+                {displayedRetrievalSummary?.router_features?.length ? (
+                  <div className="diagnostics-tags">
+                    {displayedRetrievalSummary.router_features.map((feature) => (
+                      <span key={feature} className="diagnostics-tag">{feature}</span>
+                    ))}
+                  </div>
+                ) : null}
+                {displayedRetrievalSummary?.evidence_sources?.length ? (
+                  <p className="diagnostics-text">证据来源：{displayedRetrievalSummary.evidence_sources.join("、")}</p>
                 ) : null}
                 {displayedGraphSummary?.matched_concepts?.length ? (
                   <p className="diagnostics-text">图谱命中：{displayedGraphSummary.matched_concepts.join("、")}</p>

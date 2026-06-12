@@ -11,6 +11,7 @@ export interface RetrievedChunk {
   retrieval_mode?: string | null;
   concepts?: string[];
   rank_score?: number | null;
+  coverage_score?: number | null;
 }
 
 export interface GraphSummary {
@@ -23,6 +24,8 @@ export interface RetrievalSummary {
   query_expansions: string[];
   route_subjects: string[];
   route_type?: string;
+  answer_type?: string;
+  router_features?: string[];
   graph_documents: number;
   vector_candidates: number;
   lexical_candidates: number;
@@ -36,9 +39,15 @@ export interface RetrievalSummary {
   graph_budget_tokens: number;
   cache_hit?: boolean;
   cache_similarity?: number;
+  cache_policy?: string;
+  cache_risk?: string;
   retry_count?: number;
   retry_strategy?: string;
   score_profile?: Record<string, number>;
+  planner_queries?: string[];
+  selected_by?: string;
+  selection_confidence?: number;
+  evidence_sources?: string[];
 }
 
 export interface AnswerValidation {
@@ -50,6 +59,13 @@ export interface AnswerValidation {
   supported_claims?: number;
   unsupported_claims?: number;
   weak_sentences?: string[];
+  answer_type?: string;
+  aspect_coverage?: number;
+  missing_aspects?: string[];
+  fact_coverage?: number;
+  used_facts?: number;
+  reference_count?: number;
+  concept_count?: number;
 }
 
 export interface ExecutionTrace {
@@ -158,6 +174,60 @@ export interface ChatTaskDetailResponse {
   task: ChatTask;
   events: TaskEvent[];
   graph_state?: ChatStateResponse | null;
+}
+
+export interface FailureSample {
+  task_id: string;
+  status: string;
+  question: string;
+  answer?: string;
+  reason_code: string;
+  reason?: string;
+  answer_type?: string;
+  missing_aspects?: string[];
+  grounding_score?: number;
+  citation_coverage?: number;
+  fact_coverage?: number;
+  retrieval_summary?: RetrievalSummary;
+  execution_trace?: ExecutionTrace[];
+  updated_at?: string;
+}
+
+export interface FailureSamplesResponse {
+  total: number;
+  by_reason: Record<string, number>;
+  items: FailureSample[];
+  file?: string;
+}
+
+export interface RetrievalEvalCase {
+  question: string;
+  expected_sources?: string[];
+  expected_terms?: string[];
+  gold_answer?: string | null;
+}
+
+export interface RetrievalEvalItem {
+  index: number;
+  question: string;
+  answer_type?: string;
+  expected_aspects?: string[];
+  expected_sources?: string[];
+  expected_terms?: string[];
+  retrieved_sources?: string[];
+  hit: boolean;
+  matched_rank?: number | null;
+  best_term_overlap?: number;
+  retrieval_summary?: RetrievalSummary;
+  answer_validation?: AnswerValidation;
+}
+
+export interface RetrievalEvalResponse {
+  total: number;
+  hit_at_k: number;
+  mrr: number;
+  avg_grounding_score: number;
+  items: RetrievalEvalItem[];
 }
 
 export interface TaskListResponse {
@@ -341,6 +411,23 @@ export async function getPendingChatTasks(limit = 20): Promise<TaskListResponse>
 
 export async function getChatTaskDetail(taskId: string): Promise<ChatTaskDetailResponse> {
   const r = await fetch(`${API}/tasks/${taskId}/detail`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getFailureSamples(limit = 20, writeFile = true): Promise<FailureSamplesResponse> {
+  const params = new URLSearchParams({ limit: String(limit), write_file: String(writeFile) });
+  const r = await fetch(`${API}/eval/failure-samples?${params.toString()}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function runRetrievalEval(cases: RetrievalEvalCase[], topK = 3): Promise<RetrievalEvalResponse> {
+  const r = await fetch(`${API}/eval/retrieval`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cases, top_k: topK }),
+  });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

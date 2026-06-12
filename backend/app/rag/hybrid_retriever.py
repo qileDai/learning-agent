@@ -69,9 +69,47 @@ def _build_lexical_candidates(expanded_question: str, route_subjects: list[str],
     return [(doc, score, rank) for rank, (doc, score) in enumerate(candidates[:lexical_k])]
 
 
+def _backfill_context(question: str, final_docs: list[Document], matched_concepts: list[str]) -> list[Document]:
+    normal_docs = [doc for doc in final_docs if str(doc.metadata.get("file_type") or "") != "graph"]
+    if not normal_docs:
+        return final_docs
+    seeds = normal_docs[:2]
+    target_sources = {str(doc.metadata.get("source") or "").strip() for doc in seeds if str(doc.metadata.get("source") or "").strip()}
+    target_chapters = {str(doc.metadata.get("chapter") or "").strip() for doc in seeds if str(doc.metadata.get("chapter") or "").strip()}
+    existing_keys = {_doc_key(doc) for doc in final_docs}
+    candidates: list[tuple[float, Document]] = []
+    for doc in load_index_documents():
+        key = _doc_key(doc)
+        if key in existing_keys:
+            continue
+        meta = dict(doc.metadata or {})
+        source = str(meta.get("source") or "").strip()
+        chapter = str(meta.get("chapter") or "").strip()
+        if source not in target_sources and chapter not in target_chapters:
+            continue
+        coverage = score_document_coverage(question, doc.page_content, meta, matched_concepts)
+        if coverage <= 0:
+            continue
+        boost = 0.0
+        if source in target_sources:
+            boost += 0.18
+        if chapter and chapter in target_chapters:
+            boost += 0.1
+        if matched_concepts and set(matched_concepts) & set(meta.get("concepts") or []):
+            boost += 0.08
+        meta["coverage_score"] = round(max(float(meta.get("coverage_score") or 0.0), coverage + boost), 4)
+        candidates.append((coverage + boost, Document(page_content=doc.page_content, metadata=meta)))
+    candidates.sort(key=lambda item: (-item[0], -len(item[1].page_content)))
+    supplemented = list(final_docs)
+    for _, doc in candidates[:2]:
+        supplemented.append(doc)
+    return supplemented
+
+
 def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: int = 0, retry_strategy: str | None = None) -> tuple[list[Document], dict]:
     query_plan = expand_query(question)
     route_type = str(query_plan.get("route_type") or "simple")
+    answer_type = str(query_plan.get("answer_type") or "fact")
     vector_k = max(int(vector_k or 0), int(query_plan.get("vector_k") or settings.retrieval_vector_k))
     lexical_k = int(query_plan.get("lexical_k") or settings.retrieval_lexical_k)
     final_k = int(query_plan.get("final_k") or settings.retrieval_final_k)
@@ -87,11 +125,13 @@ def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: 
 
     score_weights = get_score_weights(route_type, retry_count=retry_count, retry_strategy=retry_strategy)
 
-    cached = get_cached_retrieval(question, route_type)
+    cached = get_cached_retrieval(question, route_type, answer_type)
     if cached is not None and retry_count == 0:
         documents, graph_result = cached
         retrieval_summary = dict(graph_result.get("retrieval_summary") or {})
         retrieval_summary.setdefault("route_type", route_type)
+        retrieval_summary.setdefault("answer_type", answer_type)
+        retrieval_summary.setdefault("router_features", query_plan.get("router_features") or [])
         retrieval_summary.setdefault("vector_k", vector_k)
         retrieval_summary.setdefault("lexical_k", lexical_k)
         retrieval_summary.setdefault("rerank_window", settings.retrieval_rerank_window)
@@ -244,12 +284,15 @@ def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: 
     rerank_window = min(len(normal_docs), settings.retrieval_rerank_window + max(retry_count * 4, 0))
     diversified = diversify_documents(normal_docs[:rerank_window], final_k, max_per_source)
     final_docs = [*graph_docs_list[:1], *diversified]
+    final_docs = _backfill_context(question, final_docs, matched_concepts)
 
     graph_result["query_plan"] = query_plan
     graph_result["retrieval_summary"] = {
         "query_expansions": query_plan.get("query_expansions", []),
         "route_subjects": route_subjects,
         "route_type": route_type,
+        "answer_type": answer_type,
+        "router_features": query_plan.get("router_features") or [],
         "graph_documents": graph_docs,
         "vector_candidates": len([doc for doc in ranked if "vector" in str(doc.metadata.get("retrieval_mode", ""))]),
         "lexical_candidates": len([doc for doc in ranked if "lexical" in str(doc.metadata.get("retrieval_mode", ""))]),
@@ -261,9 +304,15 @@ def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: 
         "rerank_window": rerank_window,
         "cache_hit": False,
         "cache_similarity": 0.0,
+        "cache_policy": "strict" if route_type == "analysis" else "balanced" if route_type == "complex" else "fast",
+        "cache_risk": "high" if route_type == "analysis" else "medium" if route_type == "complex" else "low",
         "retry_count": retry_count,
         "retry_strategy": retry_strategy or "none",
         "score_profile": score_weights,
+        "planner_queries": [],
+        "selected_by": "pending",
+        "selection_confidence": 0.0,
+        "evidence_sources": [str(doc.metadata.get("source") or "") for doc in final_docs if str(doc.metadata.get("source") or "")],
     }
-    save_cached_retrieval(question, route_type, final_docs, graph_result)
+    save_cached_retrieval(question, route_type, final_docs, graph_result, answer_type=answer_type)
     return final_docs, graph_result

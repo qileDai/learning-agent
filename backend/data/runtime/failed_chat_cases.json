@@ -1,0 +1,708 @@
+{
+  "total": 7,
+  "by_reason": {
+    "GROUNDING_WEAK_EVIDENCE": 2,
+    "UNKNOWN": 2,
+    "ANSWER_MISSING_ASPECTS": 1,
+    "CHAT_RESUME_FAILED": 1,
+    "CHAT_START_FAILED": 1
+  },
+  "items": [
+    {
+      "task_id": "b935fde7-bf70-424b-8cde-f73fad5e27e4",
+      "status": "failed",
+      "question": "Python ????????",
+      "answer": "",
+      "reason_code": "CHAT_START_FAILED",
+      "reason": "Connection error.",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {},
+      "execution_trace": [],
+      "updated_at": "2026-06-12T11:55:44Z"
+    },
+    {
+      "task_id": "7b998db4-fb53-4f70-971c-bf9d4f1f8118",
+      "status": "completed",
+      "question": "今天星期几",
+      "answer": "今天是星期几取决于你所在的具体日期。你可以查看手机、电脑或日历来确认今天是星期几。如果你需要了解特定日期的星期几，可以使用以下方法：\n\n1. **查看日历**：这是最直接的方法，打开手机或电脑上的日历应用。\n2. **使用搜索引擎**：在搜索引擎中输入“今天星期几”，通常会直接显示结果。\n3. **计算方法**：如果你知道某个已知日期的星期几，可以通过计算来推算其他日期。例如，使用“蔡勒公式”来计算特定日期的星期几。\n\n如果你需要进一步的帮助，请告诉我具体的日期，我可以帮你计算！",
+      "reason_code": "ANSWER_MISSING_ASPECTS",
+      "reason": "达到最大步数，返回当前最佳答案",
+      "answer_type": "fact",
+      "missing_aspects": [
+        "直接答案",
+        "关键事实"
+      ],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [],
+        "route_subjects": [],
+        "route_type": "simple",
+        "answer_type": "fact",
+        "router_features": [
+          "fact"
+        ],
+        "graph_documents": 0,
+        "vector_candidates": 15,
+        "lexical_candidates": 0,
+        "final_candidates": 10,
+        "max_per_source": 3,
+        "vector_k": 22,
+        "lexical_k": 20,
+        "final_k": 10,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "cache_policy": "fast",
+        "cache_risk": "low",
+        "retry_count": 2,
+        "retry_strategy": "focus_coverage",
+        "score_profile": {
+          "vector": 1.0,
+          "lexical": 0.92,
+          "graph": 0.92,
+          "route": 0.72,
+          "coverage": 1.25,
+          "intent": 0.76,
+          "consensus": 1.08,
+          "rrf": 10.0
+        },
+        "planner_queries": [
+          "今天星期几",
+          "今天星期几 关键事实 直接答案",
+          "今天星期几 直接答案 关键事实",
+          "今天星期几 直接答案 关键事实 关键条件 关键结论"
+        ],
+        "selected_by": "pending",
+        "selection_confidence": 0.0,
+        "evidence_sources": [
+          "chemistry_periodic_table.md",
+          "history_ancient_china.md",
+          "cs_python_basics.md",
+          "geography_climate_zones.md",
+          "xinli.md",
+          "literature_poetry_analysis.md",
+          "xinli.md",
+          "math_calculus_intro.md",
+          "cs_python_basics.md",
+          "xinli.md"
+        ],
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 1,
+          "elapsed_ms": 5,
+          "data": {
+            "loop_step": 1,
+            "max_steps": 3,
+            "plan_question": "今天星期几",
+            "retry_strategy": "none",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "今天星期几",
+              "今天星期几 关键事实 直接答案",
+              "今天星期几 直接答案 关键事实"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "知识库未命中，转入 LLM 直答",
+          "step": 1,
+          "elapsed_ms": 2603,
+          "data": {
+            "kb_hit": false,
+            "route_type": "simple",
+            "retry_strategy": "none",
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "generate_llm",
+          "status": "running",
+          "message": "已完成 LLM 直答",
+          "step": 1,
+          "elapsed_ms": 3319,
+          "data": {
+            "answer_mode": "llm",
+            "answer_length": 84,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 1,
+          "elapsed_ms": 11,
+          "data": {
+            "step": 1,
+            "max_steps": 3,
+            "reason": "上一轮回答缺少关键覆盖维度：直接答案、关键事实，请优先检索并补全这些部分",
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "grounding_score": 0.0,
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 2,
+          "elapsed_ms": 8,
+          "data": {
+            "loop_step": 2,
+            "max_steps": 3,
+            "plan_question": "今天星期几",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "今天星期几",
+              "今天星期几 关键事实 直接答案",
+              "今天星期几 直接答案 关键事实",
+              "今天星期几 直接答案 关键事实 关键条件 关键结论"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "知识库未命中，转入 LLM 直答",
+          "step": 2,
+          "elapsed_ms": 2645,
+          "data": {
+            "kb_hit": false,
+            "route_type": "simple",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "generate_llm",
+          "status": "running",
+          "message": "已完成 LLM 直答",
+          "step": 2,
+          "elapsed_ms": 3480,
+          "data": {
+            "answer_mode": "llm",
+            "answer_length": 179,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 2,
+          "elapsed_ms": 6,
+          "data": {
+            "step": 2,
+            "max_steps": 3,
+            "reason": "上一轮回答缺少关键覆盖维度：直接答案、关键事实，请优先检索并补全这些部分",
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "grounding_score": 0.0,
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 3,
+          "elapsed_ms": 5,
+          "data": {
+            "loop_step": 3,
+            "max_steps": 3,
+            "plan_question": "今天星期几",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "今天星期几",
+              "今天星期几 关键事实 直接答案",
+              "今天星期几 直接答案 关键事实",
+              "今天星期几 直接答案 关键事实 关键条件 关键结论"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "知识库未命中，转入 LLM 直答",
+          "step": 3,
+          "elapsed_ms": 5236,
+          "data": {
+            "kb_hit": false,
+            "route_type": "simple",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "generate_llm",
+          "status": "running",
+          "message": "已完成 LLM 直答",
+          "step": 3,
+          "elapsed_ms": 12770,
+          "data": {
+            "answer_mode": "llm",
+            "answer_length": 242,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "completed",
+          "message": "critic 结束循环",
+          "step": 3,
+          "elapsed_ms": 5,
+          "data": {
+            "step": 3,
+            "max_steps": 3,
+            "grounding_score": 0.0,
+            "has_answer": true,
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        }
+      ],
+      "updated_at": "2026-06-12T09:19:17Z"
+    },
+    {
+      "task_id": "4492c13b-20b4-40d3-aa52-ddcb5df5eac5",
+      "status": "completed",
+      "question": "python列表推导式怎么写",
+      "answer": "Python 列表推导式的基本语法为：\n\n```python\n[expression for item in iterable if condition]\n```\n\n具体步骤如下：\n1. **expression**：对每个元素进行操作的表达式。\n2. **item**：当前迭代的元素。\n3. **iterable**：可迭代对象（如列表、范围等）。\n4. **condition**（可选）：过滤条件，只有满足该条件的元素才会被包含在结果中。\n\n例如，生成一个包含 0 到 9 的偶数的列表，可以使用以下列表推导式：\n\n```python\neven_numbers = [x for x in range(10) if x % 2 == 0]\n```\n\n这段代码会生成 `[0, 2, 4, 6, 8]`。",
+      "reason_code": "GROUNDING_WEAK_EVIDENCE",
+      "reason": "上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+      "answer_type": "process",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [
+          "Python 编程",
+          "list comprehension"
+        ],
+        "route_subjects": [
+          "computer_science"
+        ],
+        "route_type": "analysis",
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 8,
+        "final_candidates": 12,
+        "max_per_source": 3,
+        "vector_k": 30,
+        "lexical_k": 28,
+        "final_k": 11,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "retry_count": 1,
+        "retry_strategy": "widen_retrieval",
+        "score_profile": {
+          "vector": 1.0,
+          "lexical": 1.2,
+          "graph": 1.16,
+          "route": 0.85,
+          "coverage": 1.22,
+          "intent": 0.82,
+          "consensus": 1.08,
+          "rrf": 10.0
+        },
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成本轮规划",
+          "step": 1,
+          "elapsed_ms": 6,
+          "data": {
+            "loop_step": 1,
+            "max_steps": 3,
+            "plan_question": "python列表推导式怎么写",
+            "retry_strategy": "none",
+            "reason_code": ""
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "awaiting_input",
+          "message": "检索命中知识库候选",
+          "step": 1,
+          "elapsed_ms": 9225,
+          "data": {
+            "kb_hit": true,
+            "candidates": 3,
+            "route_type": "complex",
+            "retry_strategy": "none"
+          }
+        },
+        {
+          "node": "human_select",
+          "status": "running",
+          "message": "已完成人工选择",
+          "step": 1,
+          "elapsed_ms": 0,
+          "data": {
+            "selected_chunk_ids": [
+              "8f1315d1-9984-528b-94ba-cd733fc97fc8"
+            ]
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库生成回答",
+          "step": 1,
+          "elapsed_ms": 5009,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 0.5525,
+            "selected_source": "graph://knowledge-map",
+            "supporting_sources": [
+              "cs_python_basics.md",
+              "cs_python_basics.md"
+            ]
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 1,
+          "elapsed_ms": 5,
+          "data": {
+            "step": 1,
+            "max_steps": 3,
+            "reason": "上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+            "reason_code": "GROUNDING_WEAK_EVIDENCE",
+            "grounding_score": 0.5525
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成本轮规划",
+          "step": 2,
+          "elapsed_ms": 6,
+          "data": {
+            "loop_step": 2,
+            "max_steps": 3,
+            "plan_question": "python列表推导式怎么写\n补充检索要求：扩大召回范围，补充别名、章节词和关联概念。失败原因：上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+            "retry_strategy": "widen_retrieval",
+            "reason_code": "GROUNDING_WEAK_EVIDENCE"
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "awaiting_input",
+          "message": "检索命中知识库候选",
+          "step": 2,
+          "elapsed_ms": 4503,
+          "data": {
+            "kb_hit": true,
+            "candidates": 3,
+            "route_type": "analysis",
+            "retry_strategy": "widen_retrieval"
+          }
+        }
+      ],
+      "updated_at": "2026-06-12T07:48:21Z"
+    },
+    {
+      "task_id": "8c406f67-f929-4fa3-8946-6afe477275f4",
+      "status": "completed",
+      "question": "古诗词中「月」意象常表示什么？",
+      "answer": "在古诗词中，「月」意象常常表示思乡、离别和团圆。具体来说，月亮的圆缺变化和明亮的光辉常被用来寄托诗人对故乡的思念、对亲人的怀念以及对团聚的渴望。\n\n例如，许多古诗中通过描绘月亮的景象，表达了诗人内心的孤独和对家乡的思念，这是一种典型的借景抒情手法。通过月亮这一意象，诗人能够有效地传达复杂的情感。\n\n总结来说，「月」在古诗词中不仅是自然景物的描写，更是情感表达的重要载体。",
+      "reason_code": "GROUNDING_WEAK_EVIDENCE",
+      "reason": "上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [
+          "诗歌意象",
+          "月亮意象",
+          "月意象"
+        ],
+        "route_subjects": [
+          "literature"
+        ],
+        "route_type": "analysis",
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 9,
+        "final_candidates": 12,
+        "max_per_source": 3,
+        "vector_k": 30,
+        "lexical_k": 28,
+        "final_k": 11,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "retry_count": 1,
+        "retry_strategy": "widen_retrieval",
+        "score_profile": {
+          "vector": 1.0,
+          "lexical": 1.2,
+          "graph": 1.16,
+          "route": 0.85,
+          "coverage": 1.22,
+          "intent": 0.82,
+          "consensus": 1.08,
+          "rrf": 10.0
+        },
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成本轮规划",
+          "step": 1,
+          "elapsed_ms": 5,
+          "data": {
+            "loop_step": 1,
+            "max_steps": 3,
+            "plan_question": "古诗词中「月」意象常表示什么？",
+            "retry_strategy": "none",
+            "reason_code": ""
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "awaiting_input",
+          "message": "检索命中知识库候选",
+          "step": 1,
+          "elapsed_ms": 9053,
+          "data": {
+            "kb_hit": true,
+            "candidates": 2,
+            "route_type": "complex",
+            "retry_strategy": "none"
+          }
+        },
+        {
+          "node": "human_select",
+          "status": "running",
+          "message": "已完成人工选择",
+          "step": 1,
+          "elapsed_ms": 0,
+          "data": {
+            "selected_chunk_ids": [
+              "b5f05d20-9475-5bf8-b63e-967258c81ef5"
+            ]
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库生成回答",
+          "step": 1,
+          "elapsed_ms": 7413,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 0.4189,
+            "selected_source": "graph://knowledge-map",
+            "supporting_sources": [
+              "literature_poetry_analysis.md"
+            ]
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 1,
+          "elapsed_ms": 7,
+          "data": {
+            "step": 1,
+            "max_steps": 3,
+            "reason": "上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+            "reason_code": "GROUNDING_WEAK_EVIDENCE",
+            "grounding_score": 0.4189
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成本轮规划",
+          "step": 2,
+          "elapsed_ms": 9,
+          "data": {
+            "loop_step": 2,
+            "max_steps": 3,
+            "plan_question": "古诗词中「月」意象常表示什么？\n补充检索要求：扩大召回范围，补充别名、章节词和关联概念。失败原因：上一轮回答引用证据不足，请扩大召回范围并优先保留覆盖问题核心的资料",
+            "retry_strategy": "widen_retrieval",
+            "reason_code": "GROUNDING_WEAK_EVIDENCE"
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "awaiting_input",
+          "message": "检索命中知识库候选",
+          "step": 2,
+          "elapsed_ms": 4939,
+          "data": {
+            "kb_hit": true,
+            "candidates": 2,
+            "route_type": "analysis",
+            "retry_strategy": "widen_retrieval"
+          }
+        }
+      ],
+      "updated_at": "2026-05-25T13:33:32Z"
+    },
+    {
+      "task_id": "28b283c9-3a44-4e30-84d9-2fe07d98df81",
+      "status": "completed",
+      "question": "我是谁",
+      "answer": "你是一个正在寻求知识和帮助的人。无论你是在寻找学习建议、解决问题，还是想要了解某个特定主题，我都在这里为你提供支持和指导。如果你有具体的问题或想要讨论的内容，请告诉我，我会尽力帮助你！",
+      "reason_code": "UNKNOWN",
+      "reason": "",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [],
+        "route_subjects": [],
+        "route_type": "analysis",
+        "graph_documents": 0,
+        "vector_candidates": 15,
+        "lexical_candidates": 5,
+        "final_candidates": 10,
+        "max_per_source": 3,
+        "vector_k": 26,
+        "lexical_k": 24,
+        "final_k": 10,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [],
+      "updated_at": "2026-05-25T06:30:28Z"
+    },
+    {
+      "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
+      "status": "awaiting_input",
+      "question": "python",
+      "answer": "",
+      "reason_code": "UNKNOWN",
+      "reason": "",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [
+          "Python 编程"
+        ],
+        "route_subjects": [
+          "computer_science"
+        ],
+        "route_type": "simple",
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 2,
+        "final_candidates": 9,
+        "max_per_source": 2,
+        "vector_k": 18,
+        "lexical_k": 16,
+        "final_k": 8,
+        "rerank_window": 15,
+        "cache_hit": true,
+        "cache_similarity": 1.0,
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [],
+      "updated_at": "2026-05-25T06:03:33Z"
+    },
+    {
+      "task_id": "fdc58121-010b-4dd3-98ff-eac989b25cf9",
+      "status": "failed",
+      "question": "牛二",
+      "answer": "",
+      "reason_code": "CHAT_RESUME_FAILED",
+      "reason": "Connection error.",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {
+        "query_expansions": [
+          "牛顿第二定律",
+          "F=ma"
+        ],
+        "route_subjects": [
+          "physics"
+        ],
+        "route_type": "simple",
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 2,
+        "final_candidates": 9,
+        "max_per_source": 2,
+        "vector_k": 18,
+        "lexical_k": 16,
+        "final_k": 8,
+        "rerank_window": 15,
+        "cache_hit": true,
+        "cache_similarity": 1.0,
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [],
+      "updated_at": "2026-05-25T06:00:38Z"
+    }
+  ]
+}

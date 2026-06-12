@@ -2,12 +2,13 @@ import zipfile
 from pathlib import Path
 
 from langchain_core.documents import Document
-from pypdf import PdfReader
 
 from app.rag.metadata_registry import normalize_source, source_metadata_for
 
 
 def _load_pdf(path: Path) -> list[Document]:
+    from pypdf import PdfReader
+
     reader = PdfReader(str(path))
     docs: list[Document] = []
     for i, page in enumerate(reader.pages):

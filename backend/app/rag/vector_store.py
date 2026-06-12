@@ -12,14 +12,19 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+try:
+    from langchain_openai import OpenAIEmbeddings
+except Exception:
+    OpenAIEmbeddings = None
 
 from app.config import settings
 from app.rag.elastic_store import ingest_documents as ingest_elasticsearch_documents
@@ -30,14 +35,47 @@ from app.rag.milvus_store import milvus_enabled, reset_collection as reset_milvu
 _INDEX_DIR = Path(settings.vector_index_dir)
 _EMBEDDINGS_FILE = _INDEX_DIR / "embeddings.npy"
 _DOCS_FILE = _INDEX_DIR / "documents.json"
+_VECTOR_DIM = 1536
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9_+#.-]{2,}|[\u4e00-\u9fff]")
 
 
-def get_embeddings() -> OpenAIEmbeddings:
+class _FallbackEmbeddings:
+    def __init__(self, model: str, api_key: str, api_base: str) -> None:
+        self.model = model
+
+    def _embed_text(self, text: str) -> list[float]:
+        vec = np.zeros(_VECTOR_DIM, dtype=np.float32)
+        tokens = _TOKEN_RE.findall((text or "").lower())
+        if not tokens:
+            vec[0] = 1.0
+            return vec.tolist()
+        for index, token in enumerate(tokens):
+            slot = hash(token) % _VECTOR_DIM
+            sign = 1.0 if hash(f"{token}:{index % 7}") % 2 == 0 else -1.0
+            weight = 1.0 + min(index, 6) * 0.03
+            vec[slot] += sign * weight
+        norm = max(float(np.linalg.norm(vec)), 1e-12)
+        return (vec / norm).tolist()
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed_text(text) for text in texts]
+
+    def embed_query(self, query: str) -> list[float]:
+        return self._embed_text(query)
+
+
+def get_embeddings() -> Any:
     """返回统一使用的 Embedding 模型实例。"""
-    return OpenAIEmbeddings(
+    if OpenAIEmbeddings is not None:
+        return OpenAIEmbeddings(
+            model=settings.openai_embedding_model,
+            openai_api_key=settings.openai_api_key or "dummy",
+            openai_api_base=settings.openai_api_base,
+        )
+    return _FallbackEmbeddings(
         model=settings.openai_embedding_model,
-        openai_api_key=settings.openai_api_key or "dummy",
-        openai_api_base=settings.openai_api_base,
+        api_key=settings.openai_api_key,
+        api_base=settings.openai_api_base,
     )
 
 
@@ -188,7 +226,10 @@ def _search(query: str, k: int) -> list[tuple[Document, float]]:
 
 def similarity_search(query: str, k: int = 8) -> list[Document]:
     """只返回文档结果，用于简单语义召回场景。"""
-    return [doc for doc, _ in _search(query, k=k)]
+    try:
+        return [doc for doc, _ in _search(query, k=k)]
+    except Exception:
+        return []
 
 
 def similarity_search_with_scores(query: str, k: int = 12) -> list[tuple[Document, float]]:
@@ -196,5 +237,4 @@ def similarity_search_with_scores(query: str, k: int = 12) -> list[tuple[Documen
     try:
         return _search(query, k=k)
     except Exception:
-        docs = similarity_search(query, k=k)
-        return [(d, 1.0) for d in docs]
+        return []

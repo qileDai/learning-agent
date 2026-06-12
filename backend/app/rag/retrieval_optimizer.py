@@ -15,6 +15,27 @@ _TOKEN_RE = re.compile(r"[a-zA-Z0-9_+#.-]{2,}")
 _ANALYSIS_HINTS = ("企业级", "方案", "架构", "优化", "设计", "治理", "评估", "总结", "策略", "路线", "落地", "系统")
 _COMPLEX_HINTS = ("区别", "对比", "为什么", "原因", "如何", "怎么", "步骤", "实现", "原理", "流程", "注意", "举例")
 _SENTENCE_SPLIT_RE = re.compile(r"[。！？!?；;\n]+")
+_DEFINITION_HINTS = ("是什么", "什么是", "定义", "含义", "概念", "介绍")
+_PROCESS_HINTS = ("如何", "怎么", "步骤", "流程", "实现", "做法", "方法")
+_COMPARISON_HINTS = ("区别", "对比", "比较", "不同", "优缺点", "联系")
+_ANALYSIS_QUESTION_HINTS = ("为什么", "原因", "影响", "分析", "评估", "总结")
+_ADVICE_HINTS = ("建议", "怎么学", "怎么做", "入门", "注意什么", "推荐")
+_ASPECT_KEYWORDS = {
+    "定义": ("是", "指", "定义", "含义", "概念"),
+    "核心要点": ("核心", "要点", "特点", "本质", "关键"),
+    "例子": ("例如", "比如", "示例", "举例"),
+    "步骤": ("步骤", "首先", "然后", "最后", "第"),
+    "条件": ("条件", "前提", "适用", "要求"),
+    "注意事项": ("注意", "避免", "不要", "建议"),
+    "对比维度": ("维度", "方面", "从", "对比"),
+    "关键差异": ("区别", "不同", "差异", "而"),
+    "结论": ("因此", "总之", "结论", "所以"),
+    "原因": ("原因", "因为", "导致", "影响"),
+    "关键依据": ("依据", "根据", "表明", "说明"),
+    "建议": ("建议", "可以", "推荐", "优先"),
+    "直接答案": ("是", "为", "通常", "一般"),
+    "关键事实": ("包括", "主要", "通常", "常见"),
+}
 
 
 def text_tokens(text: str) -> list[str]:
@@ -78,18 +99,58 @@ def token_overlap_ratio(left: str, right: str) -> float:
     return round(len(left_tokens & right_tokens) / max(min(len(left_tokens), len(right_tokens)), 1), 4)
 
 
+def infer_answer_type(question: str) -> str:
+    text = (question or "").strip()
+    if not text:
+        return "fact"
+    if any(hint in text for hint in _COMPARISON_HINTS):
+        return "comparison"
+    if any(hint in text for hint in _PROCESS_HINTS):
+        return "process"
+    if any(hint in text for hint in _ANALYSIS_QUESTION_HINTS):
+        return "analysis"
+    if any(hint in text for hint in _DEFINITION_HINTS):
+        return "definition"
+    if any(hint in text for hint in _ADVICE_HINTS):
+        return "advice"
+    return "fact"
+
+
+def expected_answer_aspects(question: str, answer_type: str | None = None) -> list[str]:
+    answer_type = answer_type or infer_answer_type(question)
+    if answer_type == "definition":
+        return ["定义", "核心要点", "例子"]
+    if answer_type == "process":
+        return ["步骤", "条件", "注意事项"]
+    if answer_type == "comparison":
+        return ["对比维度", "关键差异", "结论"]
+    if answer_type == "analysis":
+        return ["结论", "原因", "关键依据"]
+    if answer_type == "advice":
+        return ["建议", "步骤", "注意事项"]
+    return ["直接答案", "关键事实"]
+
+
 def classify_query(question: str) -> dict[str, Any]:
     text = (question or "").strip()
+    answer_type = infer_answer_type(text)
     route_type = "simple"
     matched_hints: list[str] = []
+    router_features: list[str] = [answer_type]
     if settings.retrieval_strategy_router_enabled:
         for hint in _ANALYSIS_HINTS:
             if hint in text:
                 matched_hints.append(hint)
-        if matched_hints or len(text) >= 24:
+        if answer_type in {"analysis", "comparison"} or matched_hints or len(text) >= 24:
             route_type = "analysis"
-        elif any(hint in text for hint in _COMPLEX_HINTS) or len(text) >= 12:
+        elif answer_type == "process" or any(hint in text for hint in _COMPLEX_HINTS) or len(text) >= 12:
             route_type = "complex"
+    if len(text) >= 36:
+        router_features.append("long_query")
+    if re.search(r"\d", text):
+        router_features.append("contains_number")
+    if "图" in text or "表" in text:
+        router_features.append("needs_structure")
     vector_k = settings.retrieval_vector_k
     lexical_k = settings.retrieval_lexical_k
     final_k = settings.retrieval_final_k
@@ -110,6 +171,9 @@ def classify_query(question: str) -> dict[str, Any]:
         "lexical_k": lexical_k,
         "final_k": final_k,
         "max_per_source": max_per_source,
+        "answer_type": answer_type,
+        "expected_aspects": expected_answer_aspects(text, answer_type),
+        "router_features": router_features,
     }
 
 
@@ -279,6 +343,40 @@ def _cache_path() -> Path:
     return Path(settings.retrieval_cache_file)
 
 
+def _knowledge_version() -> str:
+    paths = [
+        Path(settings.knowledge_metadata_file),
+        Path(settings.vector_index_dir) / "documents.json",
+        Path(settings.vector_index_dir) / "embeddings.npy",
+    ]
+    stamps = [str(int(path.stat().st_mtime)) for path in paths if path.exists()]
+    return "|".join(stamps) if stamps else "unknown"
+
+
+def _cache_policy(route_type: str, answer_type: str) -> dict[str, Any]:
+    base_threshold = float(settings.retrieval_cache_similarity_threshold)
+    if route_type == "analysis" or answer_type in {"analysis", "comparison"}:
+        return {
+            "policy": "strict",
+            "risk": "high",
+            "min_similarity": min(1.0, base_threshold + settings.retrieval_cache_strict_similarity_delta),
+            "exact_only": settings.retrieval_cache_high_risk_exact_only,
+        }
+    if route_type == "complex" or answer_type == "process":
+        return {
+            "policy": "balanced",
+            "risk": "medium",
+            "min_similarity": min(1.0, base_threshold + settings.retrieval_cache_strict_similarity_delta / 2),
+            "exact_only": False,
+        }
+    return {
+        "policy": "fast",
+        "risk": "low",
+        "min_similarity": base_threshold,
+        "exact_only": False,
+    }
+
+
 def _load_retrieval_cache() -> list[dict[str, Any]]:
     path = _cache_path()
     if not settings.retrieval_cache_enabled or not path.exists():
@@ -306,16 +404,22 @@ def _deserialize_documents(items: list[dict[str, Any]]) -> list[Document]:
     return [Document(page_content=str(item.get("page_content") or ""), metadata=dict(item.get("metadata") or {})) for item in items]
 
 
-def get_cached_retrieval(question: str, route_type: str) -> tuple[list[Document], dict[str, Any]] | None:
+def get_cached_retrieval(question: str, route_type: str, answer_type: str = "fact") -> tuple[list[Document], dict[str, Any]] | None:
     if not settings.retrieval_cache_enabled:
         return None
     normalized = normalize_question(question)
     if not normalized:
         return None
+    policy = _cache_policy(route_type, answer_type)
     best_entry: dict[str, Any] | None = None
     best_score = 0.0
+    knowledge_version = _knowledge_version()
     for entry in _load_retrieval_cache():
         if str(entry.get("route_type") or "") != route_type:
+            continue
+        if str(entry.get("answer_type") or "fact") != answer_type:
+            continue
+        if str(entry.get("knowledge_version") or "") != knowledge_version:
             continue
         entry_question = str(entry.get("question") or "")
         entry_normalized = str(entry.get("normalized_question") or "")
@@ -324,7 +428,9 @@ def get_cached_retrieval(question: str, route_type: str) -> tuple[list[Document]
         similarity = 1.0 if entry_normalized == normalized else token_overlap_ratio(normalized, entry_normalized)
         if question.strip() == entry_question.strip():
             similarity = 1.0
-        if similarity < settings.retrieval_cache_similarity_threshold or similarity <= best_score:
+        if policy["exact_only"] and similarity < 1.0:
+            continue
+        if similarity < policy["min_similarity"] or similarity <= best_score:
             continue
         best_entry = entry
         best_score = similarity
@@ -334,11 +440,13 @@ def get_cached_retrieval(question: str, route_type: str) -> tuple[list[Document]
     retrieval_summary = dict(graph_result.get("retrieval_summary") or {})
     retrieval_summary["cache_hit"] = True
     retrieval_summary["cache_similarity"] = round(best_score, 4)
+    retrieval_summary["cache_policy"] = policy["policy"]
+    retrieval_summary["cache_risk"] = policy["risk"]
     graph_result["retrieval_summary"] = retrieval_summary
     return _deserialize_documents(list(best_entry.get("documents") or [])), graph_result
 
 
-def save_cached_retrieval(question: str, route_type: str, documents: list[Document], graph_result: dict[str, Any]) -> None:
+def save_cached_retrieval(question: str, route_type: str, documents: list[Document], graph_result: dict[str, Any], *, answer_type: str = "fact") -> None:
     if not settings.retrieval_cache_enabled or not documents:
         return
     normalized = normalize_question(question)
@@ -354,11 +462,19 @@ def save_cached_retrieval(question: str, route_type: str, documents: list[Docume
         "question": question,
         "normalized_question": normalized,
         "route_type": route_type,
+        "answer_type": answer_type,
+        "knowledge_version": _knowledge_version(),
         "saved_at": int(time()),
         "documents": _serialize_documents(documents),
         "graph_result": compact_result,
     }
-    filtered = [entry for entry in entries if str(entry.get("normalized_question") or "") != normalized or str(entry.get("route_type") or "") != route_type]
+    filtered = [
+        entry
+        for entry in entries
+        if str(entry.get("normalized_question") or "") != normalized
+        or str(entry.get("route_type") or "") != route_type
+        or str(entry.get("answer_type") or "fact") != answer_type
+    ]
     filtered.insert(0, new_entry)
     filtered.sort(key=lambda item: int(item.get("saved_at") or 0), reverse=True)
     _save_retrieval_cache(filtered)
@@ -369,10 +485,65 @@ def _split_sentences(text: str) -> list[str]:
     return [part for part in parts if len(part) >= 4]
 
 
-def validate_answer_grounding(question: str, answer: str, references: list[str], concepts: list[str] | None = None) -> dict[str, Any]:
+def _aspect_keywords(aspect: str) -> tuple[str, ...]:
+    return _ASPECT_KEYWORDS.get(aspect, (aspect,))
+
+
+def _aspect_hit(answer_text: str, aspect: str) -> bool:
+    if aspect in answer_text:
+        return True
+    keywords = _aspect_keywords(aspect)
+    if any(keyword and keyword in answer_text for keyword in keywords):
+        return True
+    return token_overlap_ratio(aspect, answer_text) >= 0.5
+
+
+def extract_relevant_facts(question: str, references: list[str], aspects: list[str] | None = None, limit: int = 6) -> list[str]:
+    scored: list[tuple[float, str]] = []
+    seen: set[str] = set()
+    joined_aspects = " ".join(aspects or [])
+    for reference in references:
+        for sentence in _split_sentences(reference):
+            compact = re.sub(r"\s+", " ", sentence).strip()
+            if len(compact) < 8 or compact in seen:
+                continue
+            seen.add(compact)
+            score = token_overlap_ratio(question, compact) * 0.62 + token_overlap_ratio(joined_aspects, compact) * 0.38
+            if aspects and any(_aspect_hit(compact, aspect) for aspect in aspects):
+                score += 0.12
+            if len(compact) >= 18:
+                score += 0.02
+            scored.append((round(score, 4), compact))
+    scored.sort(key=lambda item: (-item[0], -len(item[1]), item[1]))
+    return [sentence for score, sentence in scored if score > 0][: max(1, limit)]
+
+
+def get_grounding_threshold(answer_type: str) -> tuple[float, float]:
+    base = float(settings.retrieval_answer_grounding_threshold)
+    if answer_type in {"definition", "fact"}:
+        return round(base + 0.04, 4), 0.34
+    if answer_type in {"process", "analysis", "comparison"}:
+        return round(base + 0.02, 4), 0.38
+    if answer_type == "advice":
+        return round(max(0.18, base - 0.02), 4), 0.28
+    return base, 0.34
+
+
+def validate_answer_grounding(
+    question: str,
+    answer: str,
+    references: list[str],
+    concepts: list[str] | None = None,
+    *,
+    answer_type: str | None = None,
+    expected_aspects: list[str] | None = None,
+    facts: list[str] | None = None,
+) -> dict[str, Any]:
     answer_text = (answer or "").strip()
     reference_text = "\n".join(item.strip() for item in references if item and item.strip())
     concept_text = " ".join(concepts or [])
+    answer_type = answer_type or infer_answer_type(question)
+    expected_aspects = expected_aspects or expected_answer_aspects(question, answer_type)
     answer_overlap = token_overlap_ratio(answer_text, f"{reference_text} {concept_text}")
     question_overlap = token_overlap_ratio(question, answer_text)
     concept_bonus = 0.0
@@ -393,10 +564,22 @@ def validate_answer_grounding(question: str, answer: str, references: list[str],
             unsupported_claims += 1
             weak_sentences.append(sentence[:48])
     citation_coverage = round(supported_claims / max(len(sentences), 1), 4) if sentences else 0.0
+    covered_aspects = [aspect for aspect in expected_aspects if _aspect_hit(answer_text, aspect)]
+    missing_aspects = [aspect for aspect in expected_aspects if aspect not in covered_aspects]
+    aspect_coverage = round(len(covered_aspects) / max(len(expected_aspects), 1), 4) if expected_aspects else 1.0
+    facts = facts or []
+    used_facts = 0
+    for fact in facts:
+        if token_overlap_ratio(fact, answer_text) >= 0.3 or fact in answer_text:
+            used_facts += 1
+    fact_coverage = round(used_facts / max(len(facts), 1), 4) if facts else 0.0
     unsupported_penalty = min(unsupported_claims * 0.03, 0.15)
-    score = round(answer_overlap * 0.56 + question_overlap * 0.2 + citation_coverage * 0.24 + concept_bonus - unsupported_penalty, 4)
+    aspect_bonus = aspect_coverage * 0.18
+    fact_bonus = fact_coverage * 0.12
+    score = round(answer_overlap * 0.46 + question_overlap * 0.18 + citation_coverage * 0.18 + concept_bonus + aspect_bonus + fact_bonus - unsupported_penalty, 4)
     score = max(0.0, score)
-    grounded = score >= settings.retrieval_answer_grounding_threshold and citation_coverage >= 0.34
+    score_threshold, citation_floor = get_grounding_threshold(answer_type)
+    grounded = score >= score_threshold and citation_coverage >= citation_floor and aspect_coverage >= 0.34
     return {
         "grounded": grounded,
         "grounding_score": score,
@@ -406,4 +589,9 @@ def validate_answer_grounding(question: str, answer: str, references: list[str],
         "supported_claims": supported_claims,
         "unsupported_claims": unsupported_claims,
         "weak_sentences": weak_sentences[:3],
+        "answer_type": answer_type,
+        "aspect_coverage": aspect_coverage,
+        "missing_aspects": missing_aspects[:4],
+        "fact_coverage": fact_coverage,
+        "used_facts": used_facts,
     }

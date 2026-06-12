@@ -9,7 +9,7 @@ from app.config import settings
 from app.graph.prompts import TOP_K
 from app.graph.workflow import get_graph
 from app.media.service import create_image_job, create_video_job, get_media_job
-from app.rag.evaluation import evaluate_answer, evaluate_retrieval
+from app.rag.evaluation import evaluate_answer, evaluate_retrieval, export_failed_cases
 from app.rag.graph_store import graph_overview, search_graph
 from app.rag.ingest import ingest_knowledge_base
 from app.scheduler.daily_push import generate_daily_plan, get_push_history
@@ -133,6 +133,11 @@ def answer_eval_api(req: AnswerEvalRequest):
     return evaluate_answer(req.model_dump())
 
 
+@router.get("/eval/failure-samples")
+def failure_samples_api(limit: int = Query(default=50, ge=1, le=500), write_file: bool = Query(default=True)):
+    return export_failed_cases(limit=limit, write_file=write_file)
+
+
 def _graph_state_dict(result: Any, snapshot: Any) -> dict:
     values = snapshot.values if isinstance(snapshot.values, dict) else {}
     if hasattr(result, "value"):
@@ -179,6 +184,8 @@ def _default_retrieval_summary() -> dict:
         "query_expansions": [],
         "route_subjects": [],
         "route_type": "simple",
+        "answer_type": "fact",
+        "router_features": [],
         "graph_documents": 0,
         "vector_candidates": 0,
         "lexical_candidates": 0,
@@ -192,9 +199,15 @@ def _default_retrieval_summary() -> dict:
         "graph_budget_tokens": 0,
         "cache_hit": False,
         "cache_similarity": 0.0,
+        "cache_policy": "fast",
+        "cache_risk": "low",
         "retry_count": 0,
         "retry_strategy": "none",
         "score_profile": {},
+        "planner_queries": [],
+        "selected_by": "pending",
+        "selection_confidence": 0.0,
+        "evidence_sources": [],
     }
 
 
@@ -208,6 +221,11 @@ def _default_answer_validation() -> dict:
         "supported_claims": 0,
         "unsupported_claims": 0,
         "weak_sentences": [],
+        "answer_type": "fact",
+        "aspect_coverage": 0.0,
+        "missing_aspects": [],
+        "fact_coverage": 0.0,
+        "used_facts": 0,
     }
 
 
@@ -215,6 +233,9 @@ def _initial_chat_state(question: str, thread_id: str, task_id: str) -> dict[str
     return {
         "question": question,
         "plan_question": question,
+        "query_rewrites": [question],
+        "answer_type": "fact",
+        "must_cover_aspects": [],
         "messages": [],
         "execution_trace": [],
         "thread_id": thread_id,
@@ -223,6 +244,10 @@ def _initial_chat_state(question: str, thread_id: str, task_id: str) -> dict[str
         "answer_mode": "",
         "retrieved_chunks": [],
         "selected_chunk_ids": [],
+        "requires_human_selection": False,
+        "selection_confidence": 0.0,
+        "selected_by": "pending",
+        "evidence_facts": [],
         "final_answer": "",
         "graph_context": "",
         "graph_matched_concepts": [],

@@ -2,16 +2,65 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+except Exception:
+    BackgroundScheduler = None
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+try:
+    from langchain_openai import ChatOpenAI
+except Exception:
+    ChatOpenAI = None
 
 from app.config import BACKEND_ROOT, settings
 from app.task_store import complete_task, fail_task, start_task
 
 PUSH_STORE = BACKEND_ROOT / "data" / "daily_push.json"
-_scheduler: BackgroundScheduler | None = None
+_scheduler: Any = None
+
+
+class _FallbackChatModel:
+    def __init__(self, model: str, api_key: str, api_base: str, temperature: float) -> None:
+        self.model = model
+        self.temperature = temperature
+
+    def invoke(self, messages: list[Any]) -> SimpleNamespace:
+        today = datetime.now().strftime("%Y-%m-%d")
+        content = json.dumps(
+            {
+                "title": f"今日学习安排 · {today}",
+                "summary": "当前环境未连接外部模型服务，已返回本地默认学习计划。",
+                "tasks": [
+                    {"time": "07:30", "subject": "晨间复习", "action": "回顾昨天错题与重点概念", "duration_minutes": 25},
+                    {"time": "09:00", "subject": "上午重点", "action": "学习一个核心知识点并整理笔记", "duration_minutes": 60},
+                    {"time": "15:00", "subject": "下午练习", "action": "完成配套练习并记录不会的题目", "duration_minutes": 45},
+                    {"time": "20:00", "subject": "晚间复盘", "action": "总结今日收获并规划明日重点", "duration_minutes": 20},
+                ],
+            },
+            ensure_ascii=False,
+        )
+        return SimpleNamespace(content=content)
+
+
+def _get_llm() -> Any:
+    if ChatOpenAI is not None:
+        return ChatOpenAI(
+            model=settings.openai_model,
+            openai_api_key=settings.openai_api_key or "dummy",
+            openai_api_base=settings.openai_api_base,
+            temperature=0.5,
+        )
+    return _FallbackChatModel(
+        model=settings.openai_model,
+        api_key=settings.openai_api_key,
+        api_base=settings.openai_api_base,
+        temperature=0.5,
+    )
 
 
 def _load_history() -> list[dict]:
@@ -30,12 +79,7 @@ def generate_daily_plan(force: bool = False) -> dict:
     task_id = f"scheduler:{today}:{uuid.uuid4().hex[:8]}" if force else f"scheduler:{today}"
     start_task(task_id, kind="scheduler", title=f"每日学习推送 {today}", payload={"date": today, "force": force})
     try:
-        llm = ChatOpenAI(
-            model=settings.openai_model,
-            openai_api_key=settings.openai_api_key or "dummy",
-            openai_api_base=settings.openai_api_base,
-            temperature=0.5,
-        )
+        llm = _get_llm()
         system = (
             "你是学习规划助手。根据通用 K12 与大学基础课程学习规律，"
             "生成今日 AI 学习工作安排（中文），包含：晨间复习、上午重点、下午练习、晚间复盘。"
@@ -74,7 +118,7 @@ def get_push_history(limit: int = 7) -> list[dict]:
 
 def start_scheduler() -> None:
     global _scheduler
-    if _scheduler is not None:
+    if _scheduler is not None or BackgroundScheduler is None:
         return
     _scheduler = BackgroundScheduler()
     _scheduler.add_job(
