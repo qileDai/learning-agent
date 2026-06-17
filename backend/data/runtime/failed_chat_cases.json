@@ -1,13 +1,454 @@
 {
-  "total": 7,
+  "total": 9,
   "by_reason": {
+    "ANSWER_MISSING_ASPECTS": 2,
     "GROUNDING_WEAK_EVIDENCE": 2,
     "UNKNOWN": 2,
-    "ANSWER_MISSING_ASPECTS": 1,
     "CHAT_RESUME_FAILED": 1,
-    "CHAT_START_FAILED": 1
+    "CHAT_START_FAILED": 1,
+    "GROUNDING_PASSED": 1
   },
   "items": [
+    {
+      "task_id": "64578734-edfe-44c5-b46f-54dc5b960830",
+      "status": "completed",
+      "question": "python列表推导式怎么写",
+      "answer": "关于“python列表推导式怎么写”，根据当前本地资料可先得到：\n1. ```python\n2. 关键关系：Python—常用语法→列表推导式\n3. 问题涉及概念：Python、列表推导式、列表\n4. 列表推导式—建立在→循环",
+      "reason_code": "ANSWER_MISSING_ASPECTS",
+      "reason": "达到最大步数，返回当前最佳答案",
+      "answer_type": "fact",
+      "missing_aspects": [
+        "直接答案",
+        "关键事实"
+      ],
+      "grounding_score": 1.1668,
+      "citation_coverage": 1.0,
+      "fact_coverage": 0.7143,
+      "retrieval_summary": {
+        "query_expansions": [
+          "Python 编程",
+          "list comprehension"
+        ],
+        "route_subjects": [
+          "computer_science"
+        ],
+        "route_type": "complex",
+        "answer_type": "fact",
+        "router_features": [
+          "process",
+          "needs_structure"
+        ],
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 2,
+        "final_candidates": 12,
+        "max_per_source": 3,
+        "vector_k": 26,
+        "lexical_k": 24,
+        "final_k": 11,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "cache_policy": "balanced",
+        "cache_risk": "medium",
+        "retry_count": 2,
+        "retry_strategy": "focus_coverage",
+        "score_profile": {
+          "vector": 1.0,
+          "lexical": 1.0,
+          "graph": 1.01,
+          "route": 0.72,
+          "coverage": 1.32,
+          "intent": 0.82,
+          "consensus": 1.08,
+          "rrf": 10.0
+        },
+        "planner_queries": [
+          "python列表推导式怎么写",
+          "python列表推导式怎么写 关键事实 直接答案",
+          "python列表推导式怎么写 直接答案 关键事实",
+          "python列表推导式怎么写 Python 列表推导式 列表"
+        ],
+        "selected_by": "auto",
+        "selection_confidence": 0.7732,
+        "evidence_sources": [
+          "graph://knowledge-map",
+          "cs_python_basics.md",
+          "cs_python_basics.md"
+        ],
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 1,
+          "elapsed_ms": 67,
+          "data": {
+            "loop_step": 1,
+            "max_steps": 3,
+            "plan_question": "python列表推导式怎么写",
+            "retry_strategy": "none",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "python列表推导式怎么写",
+              "python列表推导式怎么写 关键事实 直接答案",
+              "python列表推导式怎么写 直接答案 关键事实"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "检索命中知识库候选",
+          "step": 1,
+          "elapsed_ms": 74,
+          "data": {
+            "kb_hit": true,
+            "candidates": 3,
+            "route_type": "complex",
+            "retry_strategy": "none",
+            "selected_by": "auto",
+            "selection_confidence": 0.7968
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库事实生成回答",
+          "step": 1,
+          "elapsed_ms": 64,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 1.1668,
+            "selected_source": "cs_python_basics.md",
+            "supporting_sources": [
+              "graph://knowledge-map",
+              "cs_python_basics.md"
+            ],
+            "fact_count": 7,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 1,
+          "elapsed_ms": 80,
+          "data": {
+            "step": 1,
+            "max_steps": 3,
+            "reason": "上一轮回答缺少关键覆盖维度：直接答案、关键事实，请优先检索并补全这些部分",
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "grounding_score": 1.1668,
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 2,
+          "elapsed_ms": 63,
+          "data": {
+            "loop_step": 2,
+            "max_steps": 3,
+            "plan_question": "python列表推导式怎么写",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "python列表推导式怎么写",
+              "python列表推导式怎么写 关键事实 直接答案",
+              "python列表推导式怎么写 直接答案 关键事实",
+              "python列表推导式怎么写 Python 列表推导式 列表"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "检索命中知识库候选",
+          "step": 2,
+          "elapsed_ms": 371,
+          "data": {
+            "kb_hit": true,
+            "candidates": 3,
+            "route_type": "complex",
+            "retry_strategy": "focus_coverage",
+            "selected_by": "auto",
+            "selection_confidence": 0.7732
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库事实生成回答",
+          "step": 2,
+          "elapsed_ms": 79,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 1.1668,
+            "selected_source": "cs_python_basics.md",
+            "supporting_sources": [
+              "graph://knowledge-map",
+              "cs_python_basics.md"
+            ],
+            "fact_count": 7,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "retrying",
+          "message": "critic 要求进入下一轮重试",
+          "step": 2,
+          "elapsed_ms": 62,
+          "data": {
+            "step": 2,
+            "max_steps": 3,
+            "reason": "上一轮回答缺少关键覆盖维度：直接答案、关键事实，请优先检索并补全这些部分",
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "grounding_score": 1.1668,
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        },
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 3,
+          "elapsed_ms": 60,
+          "data": {
+            "loop_step": 3,
+            "max_steps": 3,
+            "plan_question": "python列表推导式怎么写",
+            "retry_strategy": "focus_coverage",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "python列表推导式怎么写",
+              "python列表推导式怎么写 关键事实 直接答案",
+              "python列表推导式怎么写 直接答案 关键事实",
+              "python列表推导式怎么写 Python 列表推导式 列表"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "检索命中知识库候选",
+          "step": 3,
+          "elapsed_ms": 130,
+          "data": {
+            "kb_hit": true,
+            "candidates": 3,
+            "route_type": "complex",
+            "retry_strategy": "focus_coverage",
+            "selected_by": "auto",
+            "selection_confidence": 0.7732
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库事实生成回答",
+          "step": 3,
+          "elapsed_ms": 70,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 1.1668,
+            "selected_source": "cs_python_basics.md",
+            "supporting_sources": [
+              "graph://knowledge-map",
+              "cs_python_basics.md"
+            ],
+            "fact_count": 7,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "completed",
+          "message": "critic 结束循环",
+          "step": 3,
+          "elapsed_ms": 67,
+          "data": {
+            "step": 3,
+            "max_steps": 3,
+            "grounding_score": 1.1668,
+            "has_answer": true,
+            "reason_code": "ANSWER_MISSING_ASPECTS",
+            "aspect_coverage": 0.0,
+            "missing_aspects": [
+              "直接答案",
+              "关键事实"
+            ]
+          }
+        }
+      ],
+      "updated_at": "2026-06-12T15:03:02Z"
+    },
+    {
+      "task_id": "1436bda4-9039-40cd-bd49-e8a5fb82654d",
+      "status": "completed",
+      "question": "牛顿第二定律公式是什么？",
+      "answer": "关于“牛顿第二定律公式是什么？”，根据当前本地资料可先得到：\n1. 牛顿第二定律—涉及→力\n2. 关键关系：牛顿第二定律—表达式→F=ma\n3. 问题涉及概念：牛顿第二定律、F=ma\n4. 牛顿第二定律—建立在→牛顿第一定律",
+      "reason_code": "GROUNDING_PASSED",
+      "reason": "回答 grounded 且覆盖核心维度，直接结束",
+      "answer_type": "fact",
+      "missing_aspects": [
+        "关键事实"
+      ],
+      "grounding_score": 1.0593,
+      "citation_coverage": 0.8333,
+      "fact_coverage": 0.8571,
+      "retrieval_summary": {
+        "query_expansions": [
+          "F=ma",
+          "牛二"
+        ],
+        "route_subjects": [
+          "physics"
+        ],
+        "route_type": "complex",
+        "answer_type": "fact",
+        "router_features": [
+          "definition"
+        ],
+        "graph_documents": 1,
+        "vector_candidates": 15,
+        "lexical_candidates": 4,
+        "final_candidates": 10,
+        "max_per_source": 2,
+        "vector_k": 22,
+        "lexical_k": 20,
+        "final_k": 9,
+        "rerank_window": 15,
+        "cache_hit": false,
+        "cache_similarity": 0.0,
+        "cache_policy": "balanced",
+        "cache_risk": "medium",
+        "retry_count": 0,
+        "retry_strategy": "none",
+        "score_profile": {
+          "vector": 1.0,
+          "lexical": 1.0,
+          "graph": 0.95,
+          "route": 0.72,
+          "coverage": 1.12,
+          "intent": 0.72,
+          "consensus": 1.0,
+          "rrf": 10.0
+        },
+        "planner_queries": [
+          "牛顿第二定律公式是什么？",
+          "牛顿第二定律公式是什么？ 关键事实 直接答案",
+          "牛顿第二定律公式是什么？ 直接答案 关键事实"
+        ],
+        "selected_by": "auto",
+        "selection_confidence": 1.0,
+        "evidence_sources": [
+          "graph://knowledge-map",
+          "physics_newton_laws.pdf"
+        ],
+        "chunk_budget_tokens": 260,
+        "graph_budget_tokens": 120
+      },
+      "execution_trace": [
+        {
+          "node": "planner",
+          "status": "running",
+          "message": "完成结构化规划",
+          "step": 1,
+          "elapsed_ms": 56,
+          "data": {
+            "loop_step": 1,
+            "max_steps": 3,
+            "plan_question": "牛顿第二定律公式是什么？",
+            "retry_strategy": "none",
+            "answer_type": "fact",
+            "must_cover_aspects": [
+              "直接答案",
+              "关键事实"
+            ],
+            "query_rewrites": [
+              "牛顿第二定律公式是什么？",
+              "牛顿第二定律公式是什么？ 关键事实 直接答案",
+              "牛顿第二定律公式是什么？ 直接答案 关键事实"
+            ]
+          }
+        },
+        {
+          "node": "retrieve",
+          "status": "running",
+          "message": "检索命中知识库候选",
+          "step": 1,
+          "elapsed_ms": 158,
+          "data": {
+            "kb_hit": true,
+            "candidates": 2,
+            "route_type": "complex",
+            "retry_strategy": "none",
+            "selected_by": "auto",
+            "selection_confidence": 1.0
+          }
+        },
+        {
+          "node": "generate_answer",
+          "status": "running",
+          "message": "已基于知识库事实生成回答",
+          "step": 1,
+          "elapsed_ms": 75,
+          "data": {
+            "answer_mode": "graph_kb",
+            "grounding_score": 1.0593,
+            "selected_source": "physics_newton_laws.pdf",
+            "supporting_sources": [
+              "graph://knowledge-map"
+            ],
+            "fact_count": 7,
+            "answer_type": "fact"
+          }
+        },
+        {
+          "node": "critic",
+          "status": "completed",
+          "message": "回答已通过 critic 校验",
+          "step": 1,
+          "elapsed_ms": 57,
+          "data": {
+            "step": 1,
+            "grounding_score": 1.0593,
+            "citation_coverage": 0.8333,
+            "aspect_coverage": 0.5,
+            "fact_coverage": 0.8571
+          }
+        }
+      ],
+      "updated_at": "2026-06-12T15:02:28Z"
+    },
     {
       "task_id": "b935fde7-bf70-424b-8cde-f73fad5e27e4",
       "status": "failed",

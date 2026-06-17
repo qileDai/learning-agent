@@ -2,12 +2,11 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.graph.prompts import TOP_K
-from app.graph.workflow import get_graph
+from app.graph.workflow import resume_agent_state, run_agent_state
 from app.media.service import create_image_job, create_video_job, get_media_job
 from app.rag.evaluation import evaluate_answer, evaluate_retrieval, export_failed_cases
 from app.rag.graph_store import graph_overview, search_graph
@@ -266,27 +265,67 @@ def _initial_chat_state(question: str, thread_id: str, task_id: str) -> dict[str
     }
 
 
-def _graph_state_for_thread(thread_id: str) -> dict[str, Any] | None:
-    graph = get_graph()
-    config = {"configurable": {"thread_id": thread_id}}
-    try:
-        snapshot = graph.get_state(config)
-    except Exception:
+def _stored_chat_state(task: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not task:
         return None
-    values = snapshot.values if isinstance(snapshot.values, dict) else {}
-    if not values:
+    task_id = str(task.get("task_id") or "").strip()
+    thread_id = str(task.get("thread_id") or task_id).strip()
+    payload = dict(task.get("payload") or {})
+    question = str(payload.get("question") or "").strip()
+    if not task_id or not question:
+        return None
+    result = dict(task.get("result") or {})
+    state = _initial_chat_state(question, thread_id, task_id)
+    state.update(
+        {
+            "plan_question": result.get("plan_question") or question,
+            "query_rewrites": result.get("query_rewrites") or [question],
+            "answer_type": result.get("answer_type") or "fact",
+            "must_cover_aspects": result.get("must_cover_aspects") or [],
+            "retrieved_chunks": result.get("retrieved_chunks") or [],
+            "selected_chunk_ids": result.get("selected_chunk_ids") or [],
+            "requires_human_selection": str(task.get("status") or "") == "awaiting_input",
+            "selection_confidence": float(result.get("selection_confidence") or 0.0),
+            "selected_by": result.get("selected_by") or "pending",
+            "evidence_facts": result.get("evidence_facts") or [],
+            "final_answer": result.get("final_answer") or "",
+            "kb_hit": bool(result.get("kb_hit")),
+            "answer_mode": result.get("answer_mode") or "",
+            "graph_context": result.get("graph_context") or "",
+            "graph_matched_concepts": result.get("graph_matched_concepts") or [],
+            "graph_related_concepts": result.get("graph_related_concepts") or [],
+            "retrieval_summary": result.get("retrieval_summary") or _default_retrieval_summary(),
+            "answer_validation": result.get("answer_validation") or _default_answer_validation(),
+            "execution_trace": result.get("execution_trace") or [],
+            "loop_step": int(result.get("loop_step") or 0),
+            "max_steps": int(task.get("max_steps") or settings.graph_max_steps),
+            "critic_reason": result.get("critic_reason") or "",
+            "critic_reason_code": result.get("critic_reason_code") or "",
+            "retry_strategy": result.get("retry_strategy") or "none",
+            "retry_count": int(result.get("retry_count") or 0),
+            "task_status": str(task.get("status") or "running"),
+            "task_error_code": str(task.get("error_code") or result.get("warning_code") or ""),
+        }
+    )
+    return state
+
+
+def _graph_state_for_thread(thread_id: str) -> dict[str, Any] | None:
+    task = get_task(thread_id)
+    state = _stored_chat_state(task)
+    if state is None:
         return None
     return {
         "task_id": thread_id,
         "thread_id": thread_id,
-        "next": list(snapshot.next or []),
-        "retrieved_chunks": values.get("retrieved_chunks", []),
-        "selected_chunk_ids": values.get("selected_chunk_ids", []),
-        "final_answer": values.get("final_answer"),
-        "graph_summary": _graph_summary(values),
-        "retrieval_summary": values.get("retrieval_summary", _default_retrieval_summary()),
-        "answer_validation": values.get("answer_validation", _default_answer_validation()),
-        "execution_trace": values.get("execution_trace", []),
+        "next": ["human_select"] if state.get("requires_human_selection") else [],
+        "retrieved_chunks": state.get("retrieved_chunks", []),
+        "selected_chunk_ids": state.get("selected_chunk_ids", []),
+        "final_answer": state.get("final_answer"),
+        "graph_summary": _graph_summary(state),
+        "retrieval_summary": state.get("retrieval_summary", _default_retrieval_summary()),
+        "answer_validation": state.get("answer_validation", _default_answer_validation()),
+        "execution_trace": state.get("execution_trace", []),
     }
 
 
@@ -303,11 +342,22 @@ def _build_task_detail(task: dict[str, Any]) -> dict[str, Any]:
 
 def _sync_chat_task(task_id: str, state: dict, *, paused: bool, message: str | None = None) -> None:
     result = {
+        "question": state.get("question") or "",
+        "plan_question": state.get("plan_question") or state.get("question") or "",
+        "query_rewrites": state.get("query_rewrites") or [],
+        "answer_type": state.get("answer_type") or "fact",
+        "must_cover_aspects": state.get("must_cover_aspects") or [],
         "answer_mode": state.get("answer_mode") or "llm",
         "kb_hit": bool(state.get("kb_hit")),
         "final_answer": state.get("final_answer") or "",
         "retrieved_chunks": state.get("retrieved_chunks") or [],
         "selected_chunk_ids": state.get("selected_chunk_ids") or [],
+        "selection_confidence": float(state.get("selection_confidence") or 0.0),
+        "selected_by": state.get("selected_by") or "pending",
+        "evidence_facts": state.get("evidence_facts") or [],
+        "graph_context": state.get("graph_context") or "",
+        "graph_matched_concepts": state.get("graph_matched_concepts") or [],
+        "graph_related_concepts": state.get("graph_related_concepts") or [],
         "retrieval_summary": state.get("retrieval_summary") or {},
         "answer_validation": state.get("answer_validation") or _default_answer_validation(),
         "execution_trace": state.get("execution_trace") or [],
@@ -338,7 +388,6 @@ def _sync_chat_task(task_id: str, state: dict, *, paused: bool, message: str | N
 
 @router.post("/chat/start")
 def chat_start(req: ChatStartRequest):
-    graph = get_graph()
     thread_id = req.thread_id or str(uuid.uuid4())
     task_id = thread_id
     start_task(
@@ -349,14 +398,11 @@ def chat_start(req: ChatStartRequest):
         thread_id=thread_id,
         max_steps=settings.graph_max_steps,
     )
-    config = {"configurable": {"thread_id": thread_id}}
     initial = _initial_chat_state(req.question, thread_id, task_id)
     try:
-        result = graph.invoke(initial, config)
-        snapshot = graph.get_state(config)
-        state = _graph_state_dict(result, snapshot)
-        if _is_paused(snapshot, result):
-            chunks = (_chunks_from_interrupt(snapshot) or state.get("retrieved_chunks") or [])[:TOP_K]
+        state, paused = run_agent_state(initial)
+        if paused:
+            chunks = (state.get("retrieved_chunks") or [])[:TOP_K]
             _sync_chat_task(task_id, state, paused=True, message=f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。")
             return {
                 "task_id": task_id,
@@ -395,25 +441,45 @@ def chat_start(req: ChatStartRequest):
 
 @router.post("/chat/resume")
 def chat_resume(req: ChatResumeRequest):
-    graph = get_graph()
-    task_id = req.thread_id
-    mark_task_status(task_id, status="running", message="继续执行知识库问答任务")
-    config = {"configurable": {"thread_id": req.thread_id}}
-    snapshot = graph.get_state(config)
-    if not _is_paused(snapshot, None):
+    task = get_task(req.thread_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    state = _stored_chat_state(task)
+    if state is None or not state.get("requires_human_selection"):
         raise HTTPException(400, "No pending interrupt for this thread")
     chunk_ids = req.selected_chunk_ids[:1] if req.selected_chunk_ids else []
     if not chunk_ids:
         raise HTTPException(400, "请单选一条知识片段")
     try:
-        result = graph.invoke(Command(resume={"selected_chunk_ids": chunk_ids}), config)
-        after = graph.get_state(config)
-        state = _graph_state_dict(result, after)
-        _sync_chat_task(task_id, state, paused=False)
+        state["selected_chunk_ids"] = chunk_ids
+        state["selected_by"] = "human"
+        state["requires_human_selection"] = False
+        retrieval_summary = dict(state.get("retrieval_summary") or {})
+        retrieval_summary["selected_by"] = "human"
+        state["retrieval_summary"] = retrieval_summary
+        mark_task_status(task["task_id"], status="running", message="继续执行知识库问答任务")
+        state, paused = resume_agent_state(state)
+        if paused:
+            chunks = (state.get("retrieved_chunks") or [])[:TOP_K]
+            _sync_chat_task(task["task_id"], state, paused=True, message=f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。")
+            return {
+                "task_id": task["task_id"],
+                "thread_id": req.thread_id,
+                "status": "awaiting_selection",
+                "mode": state.get("answer_mode") or "kb",
+                "kb_hit": bool(state.get("kb_hit")),
+                "retrieved_chunks": chunks,
+                "selection_mode": "single",
+                "graph_summary": _graph_summary(state),
+                "retrieval_summary": state.get("retrieval_summary") or _default_retrieval_summary(),
+                "answer_validation": state.get("answer_validation") or _default_answer_validation(),
+                "execution_trace": state.get("execution_trace") or [],
+                "message": f"知识库已匹配 {len(chunks)} 条相关资料，请单选 1 条后生成解答。",
+            }
+        _sync_chat_task(task["task_id"], state, paused=False)
         answer = state.get("final_answer") or ""
-        messages = state.get("messages") or []
         return {
-            "task_id": task_id,
+            "task_id": task["task_id"],
             "thread_id": req.thread_id,
             "status": "completed",
             "mode": state.get("answer_mode") or "kb",
@@ -424,10 +490,9 @@ def chat_resume(req: ChatResumeRequest):
             "answer_validation": state.get("answer_validation") or _default_answer_validation(),
             "execution_trace": state.get("execution_trace") or [],
             "message": None if answer else "未生成回答",
-            "messages": [m.content for m in messages if hasattr(m, "content")],
         }
     except Exception as exc:
-        fail_task(task_id, error_code="CHAT_RESUME_FAILED", error_message=str(exc))
+        fail_task(task["task_id"], error_code="CHAT_RESUME_FAILED", error_message=str(exc))
         raise HTTPException(500, f"chat resume failed: {exc}") from exc
 
 

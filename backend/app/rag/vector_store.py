@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import uuid
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,10 @@ _EMBEDDINGS_FILE = _INDEX_DIR / "embeddings.npy"
 _DOCS_FILE = _INDEX_DIR / "documents.json"
 _VECTOR_DIM = 1536
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_+#.-]{2,}|[\u4e00-\u9fff]")
+_INDEX_LOCK = threading.RLock()
+_INDEX_CACHE_VERSION: tuple[int, int] | None = None
+_INDEX_CACHE_DOCS: list[dict[str, Any]] = []
+_INDEX_CACHE_MATRIX: np.ndarray | None = None
 
 
 class _FallbackEmbeddings:
@@ -117,15 +122,39 @@ def _normalize(matrix: np.ndarray) -> np.ndarray:
     return matrix / norms
 
 
+def _index_version() -> tuple[int, int] | None:
+    if not _DOCS_FILE.exists() or not _EMBEDDINGS_FILE.exists():
+        return None
+    return int(_DOCS_FILE.stat().st_mtime_ns), int(_EMBEDDINGS_FILE.stat().st_mtime_ns)
+
+
+def _invalidate_index_cache() -> None:
+    global _INDEX_CACHE_VERSION, _INDEX_CACHE_DOCS, _INDEX_CACHE_MATRIX
+    _INDEX_CACHE_VERSION = None
+    _INDEX_CACHE_DOCS = []
+    _INDEX_CACHE_MATRIX = None
+
+
 def _load_index() -> tuple[list[dict[str, Any]], np.ndarray | None]:
     """读取本地向量索引，作为默认存储和回退路径。"""
-    if not _DOCS_FILE.exists() or not _EMBEDDINGS_FILE.exists():
+    global _INDEX_CACHE_VERSION, _INDEX_CACHE_DOCS, _INDEX_CACHE_MATRIX
+    version = _index_version()
+    if version is None:
+        with _INDEX_LOCK:
+            _invalidate_index_cache()
         return [], None
-    docs = json.loads(_DOCS_FILE.read_text(encoding="utf-8"))
-    matrix = np.load(_EMBEDDINGS_FILE)
-    if not docs or matrix.size == 0:
-        return [], None
-    return docs, matrix
+    with _INDEX_LOCK:
+        if _INDEX_CACHE_VERSION == version and _INDEX_CACHE_DOCS and _INDEX_CACHE_MATRIX is not None:
+            return list(_INDEX_CACHE_DOCS), _INDEX_CACHE_MATRIX
+        docs = json.loads(_DOCS_FILE.read_text(encoding="utf-8"))
+        matrix = np.load(_EMBEDDINGS_FILE)
+        if not docs or matrix.size == 0:
+            _invalidate_index_cache()
+            return [], None
+        _INDEX_CACHE_VERSION = version
+        _INDEX_CACHE_DOCS = list(docs)
+        _INDEX_CACHE_MATRIX = matrix
+        return list(_INDEX_CACHE_DOCS), _INDEX_CACHE_MATRIX
 
 
 def load_index_documents() -> list[Document]:
@@ -136,19 +165,27 @@ def load_index_documents() -> list[Document]:
 
 def _save_index(docs: list[dict[str, Any]], matrix: np.ndarray | None) -> None:
     """持久化本地文档和向量矩阵。"""
+    global _INDEX_CACHE_VERSION, _INDEX_CACHE_DOCS, _INDEX_CACHE_MATRIX
     _INDEX_DIR.mkdir(parents=True, exist_ok=True)
-    _DOCS_FILE.write_text(json.dumps(docs, ensure_ascii=False), encoding="utf-8")
-    if matrix is not None and matrix.size:
-        np.save(_EMBEDDINGS_FILE, matrix)
-    elif _EMBEDDINGS_FILE.exists():
-        _EMBEDDINGS_FILE.unlink()
+    with _INDEX_LOCK:
+        _DOCS_FILE.write_text(json.dumps(docs, ensure_ascii=False), encoding="utf-8")
+        if matrix is not None and matrix.size:
+            np.save(_EMBEDDINGS_FILE, matrix)
+            _INDEX_CACHE_MATRIX = np.array(matrix, copy=True)
+        elif _EMBEDDINGS_FILE.exists():
+            _EMBEDDINGS_FILE.unlink()
+            _INDEX_CACHE_MATRIX = None
+        _INDEX_CACHE_DOCS = list(docs)
+        _INDEX_CACHE_VERSION = _index_version()
 
 
 def reset_index() -> None:
     """重置本地索引，并联动清空 Elasticsearch / Milvus。"""
-    for path in (_DOCS_FILE, _EMBEDDINGS_FILE):
-        if path.exists():
-            path.unlink()
+    with _INDEX_LOCK:
+        for path in (_DOCS_FILE, _EMBEDDINGS_FILE):
+            if path.exists():
+                path.unlink()
+        _invalidate_index_cache()
     reset_elasticsearch_index()
     reset_milvus_collection()
 

@@ -1,6 +1,7 @@
 import json
 import math
 import re
+import threading
 from collections import Counter
 from pathlib import Path
 from time import time
@@ -36,6 +37,7 @@ _ASPECT_KEYWORDS = {
     "直接答案": ("是", "为", "通常", "一般"),
     "关键事实": ("包括", "主要", "通常", "常见"),
 }
+_CACHE_LOCK = threading.RLock()
 
 
 def text_tokens(text: str) -> list[str]:
@@ -381,10 +383,11 @@ def _load_retrieval_cache() -> list[dict[str, Any]]:
     path = _cache_path()
     if not settings.retrieval_cache_enabled or not path.exists():
         return []
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
+    with _CACHE_LOCK:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
     return data if isinstance(data, list) else []
 
 
@@ -393,7 +396,12 @@ def _save_retrieval_cache(entries: list[dict[str, Any]]) -> None:
         return
     path = _cache_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(entries[: settings.retrieval_cache_max_entries], ensure_ascii=False), encoding="utf-8")
+    target_entries = entries[: settings.retrieval_cache_max_entries]
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    payload = json.dumps(target_entries, ensure_ascii=False)
+    with _CACHE_LOCK:
+        temp_path.write_text(payload, encoding="utf-8")
+        temp_path.replace(path)
 
 
 def _serialize_documents(documents: list[Document]) -> list[dict[str, Any]]:
@@ -452,32 +460,33 @@ def save_cached_retrieval(question: str, route_type: str, documents: list[Docume
     normalized = normalize_question(question)
     if not normalized:
         return
-    entries = _load_retrieval_cache()
-    compact_result = dict(graph_result or {})
-    retrieval_summary = dict(compact_result.get("retrieval_summary") or {})
-    retrieval_summary["cache_hit"] = False
-    compact_result["retrieval_summary"] = retrieval_summary
-    compact_result.pop("documents", None)
-    new_entry = {
-        "question": question,
-        "normalized_question": normalized,
-        "route_type": route_type,
-        "answer_type": answer_type,
-        "knowledge_version": _knowledge_version(),
-        "saved_at": int(time()),
-        "documents": _serialize_documents(documents),
-        "graph_result": compact_result,
-    }
-    filtered = [
-        entry
-        for entry in entries
-        if str(entry.get("normalized_question") or "") != normalized
-        or str(entry.get("route_type") or "") != route_type
-        or str(entry.get("answer_type") or "fact") != answer_type
-    ]
-    filtered.insert(0, new_entry)
-    filtered.sort(key=lambda item: int(item.get("saved_at") or 0), reverse=True)
-    _save_retrieval_cache(filtered)
+    with _CACHE_LOCK:
+        entries = _load_retrieval_cache()
+        compact_result = dict(graph_result or {})
+        retrieval_summary = dict(compact_result.get("retrieval_summary") or {})
+        retrieval_summary["cache_hit"] = False
+        compact_result["retrieval_summary"] = retrieval_summary
+        compact_result.pop("documents", None)
+        new_entry = {
+            "question": question,
+            "normalized_question": normalized,
+            "route_type": route_type,
+            "answer_type": answer_type,
+            "knowledge_version": _knowledge_version(),
+            "saved_at": int(time()),
+            "documents": _serialize_documents(documents),
+            "graph_result": compact_result,
+        }
+        filtered = [
+            entry
+            for entry in entries
+            if str(entry.get("normalized_question") or "") != normalized
+            or str(entry.get("route_type") or "") != route_type
+            or str(entry.get("answer_type") or "fact") != answer_type
+        ]
+        filtered.insert(0, new_entry)
+        filtered.sort(key=lambda item: int(item.get("saved_at") or 0), reverse=True)
+        _save_retrieval_cache(filtered)
 
 
 def _split_sentences(text: str) -> list[str]:

@@ -11,6 +11,7 @@
 
 import json
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,36 @@ from app.rag.metadata_registry import load_metadata_registry, normalize_source
 
 _GRAPH_DIR = Path(settings.graph_index_dir)
 _GRAPH_FILE = _GRAPH_DIR / "graph.json"
+_GRAPH_LOCK = threading.RLock()
+_GRAPH_CACHE_BACKEND = ""
+_GRAPH_CACHE_VERSION: int | None = None
+_GRAPH_CACHE_DATA: dict[str, Any] | None = None
+_NEO4J_DRIVER = None
+
+
+def _graph_version() -> int:
+    if _GRAPH_FILE.exists():
+        return int(_GRAPH_FILE.stat().st_mtime_ns)
+    return 0
+
+
+def _set_graph_cache(graph: dict[str, Any], backend: str) -> dict[str, Any]:
+    global _GRAPH_CACHE_BACKEND, _GRAPH_CACHE_VERSION, _GRAPH_CACHE_DATA
+    cached = json.loads(json.dumps(graph, ensure_ascii=False))
+    with _GRAPH_LOCK:
+        _GRAPH_CACHE_BACKEND = backend
+        _GRAPH_CACHE_VERSION = _graph_version()
+        _GRAPH_CACHE_DATA = cached
+    return json.loads(json.dumps(cached, ensure_ascii=False))
+
+
+def _get_cached_graph(backend: str) -> dict[str, Any] | None:
+    with _GRAPH_LOCK:
+        if _GRAPH_CACHE_DATA is None or _GRAPH_CACHE_BACKEND != backend:
+            return None
+        if _GRAPH_CACHE_VERSION != _graph_version():
+            return None
+        return json.loads(json.dumps(_GRAPH_CACHE_DATA, ensure_ascii=False))
 
 
 def _dedup_strings(items: list[str]) -> list[str]:
@@ -165,9 +196,13 @@ def active_graph_backend() -> str:
 
 def _get_neo4j_driver():
     """创建 Neo4j Driver。"""
+    global _NEO4J_DRIVER
     from neo4j import GraphDatabase
 
-    return GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password))
+    with _GRAPH_LOCK:
+        if _NEO4J_DRIVER is None:
+            _NEO4J_DRIVER = GraphDatabase.driver(settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password))
+        return _NEO4J_DRIVER
 
 
 def _graph_fallback() -> dict[str, Any]:
@@ -192,8 +227,7 @@ def _sync_graph_to_neo4j(graph: dict[str, Any]) -> None:
         return
     try:
         driver = _get_neo4j_driver()
-        with driver:
-            with driver.session(database=settings.neo4j_database) as session:
+        with driver.session(database=settings.neo4j_database) as session:
                 session.run("CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (n:Concept) REQUIRE n.name IS UNIQUE")
                 session.run("CREATE CONSTRAINT source_name_unique IF NOT EXISTS FOR (n:Source) REQUIRE n.source IS UNIQUE")
                 session.run("MATCH (n:KnowledgeGraph) DETACH DELETE n")
@@ -255,8 +289,7 @@ def _load_graph_from_neo4j() -> dict[str, Any]:
         return _graph_fallback()
     try:
         driver = _get_neo4j_driver()
-        with driver:
-            with driver.session(database=settings.neo4j_database) as session:
+        with driver.session(database=settings.neo4j_database) as session:
                 concept_records = list(
                     session.run(
                         """
@@ -355,15 +388,20 @@ def build_graph_index(documents: list[Document]) -> dict[str, Any]:
     graph = _build_graph_payload(documents)
     _persist_graph_json(graph)
     _sync_graph_to_neo4j(graph)
-    return graph
+    return _set_graph_cache(graph, active_graph_backend())
 
 
 def load_graph_index() -> dict[str, Any]:
     """读取图谱，优先读取当前生效后端。"""
-    graph = _load_graph_from_neo4j() if active_graph_backend() == "neo4j" else _graph_fallback()
+    backend = active_graph_backend()
+    cached = _get_cached_graph(backend)
+    if cached is not None:
+        return cached
+    graph = _load_graph_from_neo4j() if backend == "neo4j" else _graph_fallback()
     if graph.get("concepts") or graph.get("sources") or graph.get("relations"):
-        return graph
-    return _graph_fallback()
+        return _set_graph_cache(graph, backend)
+    fallback = _graph_fallback()
+    return _set_graph_cache(fallback, "json")
 
 
 def graph_overview(limit: int = 12) -> dict[str, Any]:
@@ -522,8 +560,7 @@ def _search_graph_neo4j(question: str, limit_sources: int = 4, limit_relations: 
     terms = _question_terms(question)
     lower_question = (question or "").casefold()
     driver = _get_neo4j_driver()
-    with driver:
-        with driver.session(database=settings.neo4j_database) as session:
+    with driver.session(database=settings.neo4j_database) as session:
             matched_records = list(
                 session.run(
                     """
