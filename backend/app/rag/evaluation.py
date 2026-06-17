@@ -127,11 +127,13 @@ def export_failed_cases(limit: int = 50, write_file: bool = True) -> dict[str, A
         grounded = bool(validation.get("grounded"))
         missing_aspects = [str(item).strip() for item in validation.get("missing_aspects") or [] if str(item).strip()]
         reason_code = str(result.get("critic_reason_code") or task.get("error_code") or "UNKNOWN").strip() or "UNKNOWN"
-        is_failure = status in {"failed", "timeout"} or not grounded or bool(missing_aspects) or not answer
+        is_failure = status in {"failed", "timeout", "cancelled"} or not grounded or bool(missing_aspects) or not answer
         if not is_failure:
             continue
         item = {
             "task_id": task.get("task_id"),
+            "tenant_id": task.get("tenant_id"),
+            "owner": task.get("owner"),
             "status": status,
             "question": question,
             "answer": answer,
@@ -161,3 +163,44 @@ def export_failed_cases(limit: int = 50, write_file: bool = True) -> dict[str, A
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         payload["file"] = str(path)
     return payload
+
+
+def evaluate_release_gate(cases: list[dict[str, Any]], top_k: int = 3, failure_limit: int | None = None) -> dict[str, Any]:
+    record_eval_run("release_gate")
+    retrieval = evaluate_retrieval(cases, top_k=top_k)
+    failed_cases = export_failed_cases(limit=failure_limit or settings.release_gate_max_failure_cases, write_file=False)
+    checks = {
+        "hit_at_k": {
+            "actual": float(retrieval.get("hit_at_k") or 0.0),
+            "threshold": settings.release_gate_hit_at_k_min,
+        },
+        "mrr": {
+            "actual": float(retrieval.get("mrr") or 0.0),
+            "threshold": settings.release_gate_mrr_min,
+        },
+        "avg_grounding_score": {
+            "actual": float(retrieval.get("avg_grounding_score") or 0.0),
+            "threshold": settings.release_gate_grounding_score_min,
+        },
+        "failure_cases": {
+            "actual": int(failed_cases.get("total") or 0),
+            "threshold": settings.release_gate_max_failure_cases,
+            "direction": "max",
+        },
+    }
+    for item in checks.values():
+        if item.get("direction") == "max":
+            item["passed"] = item["actual"] <= item["threshold"]
+        else:
+            item["passed"] = item["actual"] >= item["threshold"]
+    passed = all(bool(item.get("passed")) for item in checks.values())
+    return {
+        "passed": passed,
+        "checks": checks,
+        "retrieval": retrieval,
+        "failure_samples": {
+            "total": failed_cases.get("total", 0),
+            "by_reason": failed_cases.get("by_reason") or {},
+            "items": failed_cases.get("items") or [],
+        },
+    }

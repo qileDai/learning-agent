@@ -40,6 +40,17 @@ RETRIEVAL_TOTAL = Counter("education_agent_retrieval_total", "Retrieval operatio
 RETRIEVAL_FINAL_CANDIDATES = Histogram("education_agent_retrieval_final_candidates", "Final retrieval candidate count", ["route_type"])
 ANSWER_GROUNDING_SCORE = Histogram("education_agent_answer_grounding_score", "Answer grounding score")
 EVAL_RUN_TOTAL = Counter("education_agent_eval_run_total", "Evaluation API runs", ["mode"])
+GRAPH_NODE_EXECUTION_TOTAL = Counter("education_agent_graph_node_execution_total", "Graph node executions", ["node", "status"])
+GRAPH_NODE_EXECUTION_LATENCY_SECONDS = Histogram(
+    "education_agent_graph_node_execution_latency_seconds",
+    "Graph node execution latency",
+    ["node", "status"],
+)
+GRAPH_CRITIC_REASON_TOTAL = Counter(
+    "education_agent_graph_critic_reason_total",
+    "Graph critic outcomes by reason",
+    ["outcome", "reason_code", "answer_type"],
+)
 
 
 class MetricsMiddleware(BaseHTTPMiddleware):
@@ -70,6 +81,27 @@ def record_answer_validation(validation: dict[str, Any]) -> None:
     if not validation:
         return
     ANSWER_GROUNDING_SCORE.observe(float(validation.get("grounding_score") or 0.0))
+
+
+def record_execution_trace_metrics(traces: list[dict[str, Any]], *, answer_type: str = "fact", offset: int = 0) -> None:
+    start = max(0, min(offset, len(traces)))
+    for trace in traces[start:]:
+        node = str(trace.get("node") or "unknown")
+        status = str(trace.get("status") or "unknown")
+        elapsed_seconds = max(float(trace.get("elapsed_ms") or 0.0) / 1000.0, 0.0)
+        GRAPH_NODE_EXECUTION_TOTAL.labels(node=node, status=status).inc()
+        GRAPH_NODE_EXECUTION_LATENCY_SECONDS.labels(node=node, status=status).observe(elapsed_seconds)
+        if node != "critic":
+            continue
+        data = dict(trace.get("data") or {})
+        reason_code = str(data.get("reason_code") or "").strip()
+        if not reason_code and status != "retrying":
+            continue
+        GRAPH_CRITIC_REASON_TOTAL.labels(
+            outcome="retry" if status == "retrying" else "end",
+            reason_code=reason_code or "unknown",
+            answer_type=answer_type or "fact",
+        ).inc()
 
 
 def record_eval_run(mode: str) -> None:

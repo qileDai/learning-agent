@@ -77,16 +77,32 @@ class _FallbackChatModel:
         return AIMessage(content=f"当前环境未连接外部模型服务，我先基于本地规则给出简要答复：{question}")
 
 
-def get_llm() -> Any:
+def _resolve_model_name(answer_type: str | None = None, *, greeting: bool = False) -> str:
+    if greeting and settings.openai_model_greeting:
+        return settings.openai_model_greeting
+    mapping = {
+        "definition": settings.openai_model_definition,
+        "process": settings.openai_model_process,
+        "comparison": settings.openai_model_comparison,
+        "analysis": settings.openai_model_analysis,
+        "advice": settings.openai_model_advice,
+        "fact": settings.openai_model_fact,
+    }
+    candidate = str(mapping.get(str(answer_type or "").strip()) or "").strip()
+    return candidate or settings.openai_model
+
+
+def get_llm(answer_type: str | None = None, *, greeting: bool = False) -> Any:
+    model_name = _resolve_model_name(answer_type, greeting=greeting)
     if ChatOpenAI is not None:
         return ChatOpenAI(
-            model=settings.openai_model,
+            model=model_name,
             openai_api_key=settings.openai_api_key or "dummy",
             openai_api_base=settings.openai_api_base,
             temperature=0.3,
         )
     return _FallbackChatModel(
-        model=settings.openai_model,
+        model=model_name,
         api_key=settings.openai_api_key,
         api_base=settings.openai_api_base,
         temperature=0.3,
@@ -178,15 +194,55 @@ def _task_timed_out(state: AgentState) -> bool:
     return elapsed > settings.graph_task_timeout_seconds
 
 
+def _task_cancelled(state: AgentState) -> bool:
+    task_id = _task_id(state)
+    if not task_id:
+        return False
+    task = get_task(task_id)
+    if not task:
+        return False
+    return str(task.get("status") or "").strip().lower() == "cancelled"
+
+
+def _cancelled_result(node_name: str, step: int) -> dict[str, Any]:
+    return {
+        "task_status": "cancelled",
+        "task_error_code": "TASK_CANCELLED",
+        "critic_decision": "end",
+        "critic_reason": "任务已取消",
+        "critic_reason_code": "TASK_CANCELLED",
+        "trace_message": f"任务已取消，停止执行节点：{node_name}",
+        "trace_data": {"step": step},
+    }
+
+
 def _run_node(node_name: str, state: AgentState, fn):
     started = perf_counter()
     task_id = _task_id(state)
     step = int(state.get("loop_step") or 0)
+    if _task_cancelled(state):
+        result = _cancelled_result(node_name, step)
+        trace = ExecutionTrace(
+            node=node_name,
+            status="cancelled",
+            message=result["trace_message"],
+            step=step,
+            elapsed_ms=0,
+            data=dict(result.get("trace_data") or {}),
+        )
+        if task_id:
+            append_task_event(task_id, "node_cancelled", message=trace["message"], node=node_name, status="cancelled", data=trace["data"])
+        result["execution_trace"] = [trace]
+        result.pop("trace_message", None)
+        result.pop("trace_data", None)
+        return result
     if task_id:
         append_task_event(task_id, "node_started", message=f"节点开始执行：{node_name}", node=node_name, status=state.get("task_status") or "running", data={"step": step})
     try:
         result = fn()
         elapsed_ms = int((perf_counter() - started) * 1000)
+        if _task_cancelled(state):
+            result = {**dict(result), **_cancelled_result(node_name, int(result.get("loop_step") or step))}
         trace = ExecutionTrace(
             node=node_name,
             status=str(result.get("task_status") or state.get("task_status") or "running"),
@@ -196,9 +252,10 @@ def _run_node(node_name: str, state: AgentState, fn):
             data=dict(result.get("trace_data") or {}),
         )
         if task_id:
+            event_type = "node_cancelled" if trace["status"] == "cancelled" else "node_completed"
             append_task_event(
                 task_id,
-                "node_completed",
+                event_type,
                 message=trace["message"],
                 node=node_name,
                 status=trace["status"],
@@ -352,13 +409,14 @@ def _build_answer_prompt(question: str, answer_type: str, aspects: list[str], fa
 def greeting_node(state: AgentState) -> dict:
     def _work() -> dict:
         question = _original_question(state)
-        llm = get_llm()
+        answer_type = infer_answer_type(question)
+        model_name = _resolve_model_name(answer_type, greeting=True)
+        llm = get_llm(answer_type, greeting=True)
         response = llm.invoke([
             SystemMessage(content=GREETING_SYSTEM),
             HumanMessage(content=question or "你好"),
         ])
         answer = response.content if hasattr(response, "content") else str(response)
-        answer_type = infer_answer_type(question)
         return {
             "question": question,
             "answer_type": answer_type,
@@ -407,7 +465,7 @@ def greeting_node(state: AgentState) -> dict:
             "task_status": "completed",
             "task_error_code": "",
             "trace_message": "寒暄节点已直接生成回复",
-            "trace_data": {"answer_mode": "greeting", "answer_type": answer_type},
+            "trace_data": {"answer_mode": "greeting", "answer_type": answer_type, "model": model_name},
         }
 
     return _run_node("greeting", state, _work)
@@ -619,7 +677,8 @@ def generate_answer_llm_node(state: AgentState) -> dict:
         question = _original_question(state)
         answer_type = str(state.get("answer_type") or infer_answer_type(question))
         aspects = _dedup_strings(list(state.get("must_cover_aspects") or expected_answer_aspects(question, answer_type)))
-        llm = get_llm()
+        model_name = _resolve_model_name(answer_type)
+        llm = get_llm(answer_type)
         prompt = f"用户问题：{question}\n问题类型：{answer_type}\n请覆盖：{'、'.join(aspects)}"
         response = llm.invoke([
             SystemMessage(content=DIRECT_ANSWER_SYSTEM),
@@ -640,7 +699,7 @@ def generate_answer_llm_node(state: AgentState) -> dict:
             "task_status": "running",
             "task_error_code": "RETRIEVAL_EMPTY",
             "trace_message": "已完成 LLM 直答",
-            "trace_data": {"answer_mode": "llm", "answer_length": len(answer), "answer_type": answer_type},
+            "trace_data": {"answer_mode": "llm", "answer_length": len(answer), "answer_type": answer_type, "model": model_name},
         }
 
     return _run_node("generate_llm", state, _work)
@@ -668,7 +727,8 @@ def generate_answer_node(state: AgentState) -> dict:
         if support_texts:
             user += "\n\n补充资料摘录：\n" + "\n\n".join(support_texts[:2])
 
-        llm = get_llm()
+        model_name = _resolve_model_name(answer_type)
+        llm = get_llm(answer_type)
         response = llm.invoke([SystemMessage(content=ANSWER_SYSTEM), HumanMessage(content=user)])
         answer = response.content if hasattr(response, "content") else str(response)
         concepts = list(primary.get("concepts") or [])
@@ -703,6 +763,7 @@ def generate_answer_node(state: AgentState) -> dict:
                 "supporting_sources": [chunk.get("source") for chunk in support_chunks],
                 "fact_count": len(facts),
                 "answer_type": answer_type,
+                "model": model_name,
             },
         }
 
@@ -725,6 +786,17 @@ def critic_node(state: AgentState) -> dict:
         fact_coverage = float(validation.get("fact_coverage") or 0.0)
         missing_aspects = [str(item).strip() for item in validation.get("missing_aspects") or [] if str(item).strip()]
         answer_type = str(state.get("answer_type") or validation.get("answer_type") or infer_answer_type(_original_question(state)))
+        if _task_cancelled(state):
+            return {
+                "critic_decision": "end",
+                "critic_reason": "任务已取消",
+                "critic_reason_code": "TASK_CANCELLED",
+                "retry_strategy": "none",
+                "task_status": "cancelled",
+                "task_error_code": "TASK_CANCELLED",
+                "trace_message": "检测到任务取消，停止循环",
+                "trace_data": {"step": step, "max_steps": max_steps},
+            }
         if _task_timed_out(state):
             return {
                 "critic_decision": "end",

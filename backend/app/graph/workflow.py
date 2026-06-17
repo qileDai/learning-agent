@@ -49,6 +49,10 @@ def _merge_state(state: AgentState, update: dict) -> AgentState:
     return merged
 
 
+def _should_stop(state: AgentState) -> bool:
+    return str(state.get("task_status") or "").strip().lower() in {"cancelled", "timeout", "failed"}
+
+
 def _run_from_node(state: AgentState, current: str) -> tuple[AgentState, bool]:
     active = current
     merged_state = dict(state)
@@ -58,10 +62,14 @@ def _run_from_node(state: AgentState, current: str) -> tuple[AgentState, bool]:
             return merged_state, False
         if active == "planner":
             merged_state = _merge_state(merged_state, planner_node(merged_state))
+            if _should_stop(merged_state):
+                return merged_state, False
             active = "retrieve"
             continue
         if active == "retrieve":
             merged_state = _merge_state(merged_state, retrieve_node(merged_state))
+            if _should_stop(merged_state):
+                return merged_state, False
             next_node = route_after_retrieve(merged_state)
             if next_node == "human_select":
                 return merged_state, True
@@ -69,14 +77,20 @@ def _run_from_node(state: AgentState, current: str) -> tuple[AgentState, bool]:
             continue
         if active == "generate_answer":
             merged_state = _merge_state(merged_state, generate_answer_node(merged_state))
+            if _should_stop(merged_state):
+                return merged_state, False
             active = "critic"
             continue
         if active == "generate_llm":
             merged_state = _merge_state(merged_state, generate_answer_llm_node(merged_state))
+            if _should_stop(merged_state):
+                return merged_state, False
             active = "critic"
             continue
         if active == "critic":
             merged_state = _merge_state(merged_state, critic_node(merged_state))
+            if _should_stop(merged_state):
+                return merged_state, False
             next_node = route_after_critic(merged_state)
             if next_node == "end":
                 return merged_state, False

@@ -88,6 +88,12 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    columns = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def _ensure_sqlite_store() -> None:
     global _STORE_READY
     if _STORE_READY:
@@ -107,6 +113,7 @@ def _ensure_sqlite_store() -> None:
                     result_json TEXT NOT NULL,
                     thread_id TEXT,
                     source_id TEXT,
+                    tenant_id TEXT,
                     owner TEXT,
                     retry_count INTEGER NOT NULL DEFAULT 0,
                     max_steps INTEGER NOT NULL DEFAULT 0,
@@ -132,29 +139,34 @@ def _ensure_sqlite_store() -> None:
                 )
                 """
             )
+            _ensure_column(conn, "tasks", "tenant_id", "tenant_id TEXT")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_kind_status_updated ON tasks(kind, status, updated_at DESC)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_tenant_status_updated ON tasks(tenant_id, status, updated_at DESC)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_task_events_task_created ON task_events(task_id, created_at)")
             count = conn.execute("SELECT COUNT(1) FROM tasks").fetchone()[0]
             if count == 0 and settings.task_store_migrate_legacy_json:
                 store = _load_json_store()
                 for task in store["tasks"].values():
+                    payload = dict(task.get("payload") or {})
+                    result = dict(task.get("result") or {})
                     conn.execute(
                         """
                         INSERT OR REPLACE INTO tasks (
-                            task_id, kind, title, status, payload_json, result_json, thread_id, source_id, owner,
+                            task_id, kind, title, status, payload_json, result_json, thread_id, source_id, tenant_id, owner,
                             retry_count, max_steps, current_step, error_code, error_message, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             str(task.get("task_id") or ""),
                             str(task.get("kind") or "generic"),
                             str(task.get("title") or task.get("task_id") or "task"),
                             _normalize_status(task.get("status")),
-                            json.dumps(task.get("payload") or {}, ensure_ascii=False),
-                            json.dumps(task.get("result") or {}, ensure_ascii=False),
+                            json.dumps(payload, ensure_ascii=False),
+                            json.dumps(result, ensure_ascii=False),
                             task.get("thread_id"),
                             task.get("source_id"),
-                            task.get("owner"),
+                            task.get("tenant_id") or payload.get("tenant_id") or settings.default_tenant_id,
+                            task.get("owner") or payload.get("submitted_by"),
                             int(task.get("retry_count") or 0),
                             int(task.get("max_steps") or 0),
                             int(task.get("current_step") or 0),
@@ -190,6 +202,7 @@ def _ensure_sqlite_store() -> None:
 def _task_from_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
+    row_keys = set(row.keys())
     return {
         "task_id": row["task_id"],
         "kind": row["kind"],
@@ -199,6 +212,7 @@ def _task_from_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
         "result": _decode_json_blob(row["result_json"], {}),
         "thread_id": row["thread_id"],
         "source_id": row["source_id"],
+        "tenant_id": row["tenant_id"] if "tenant_id" in row_keys else settings.default_tenant_id,
         "owner": row["owner"],
         "retry_count": int(row["retry_count"] or 0),
         "max_steps": int(row["max_steps"] or 0),
@@ -233,6 +247,7 @@ def upsert_task(
     result: dict[str, Any] | None = None,
     thread_id: str | None = None,
     source_id: str | None = None,
+    tenant_id: str | None = None,
     error_code: str | None = None,
     error_message: str | None = None,
     retry_count: int | None = None,
@@ -241,6 +256,7 @@ def upsert_task(
     owner: str | None = None,
 ) -> dict[str, Any]:
     with _TASK_LOCK:
+        resolved_tenant = str(tenant_id or settings.default_tenant_id).strip() or settings.default_tenant_id
         if _use_sqlite():
             _ensure_sqlite_store()
             now = _now_iso()
@@ -256,6 +272,7 @@ def upsert_task(
                         "result": result or {},
                         "thread_id": thread_id,
                         "source_id": source_id,
+                        "tenant_id": resolved_tenant,
                         "owner": owner,
                         "retry_count": retry_count or 0,
                         "max_steps": max_steps or 0,
@@ -278,6 +295,8 @@ def upsert_task(
                         task["thread_id"] = thread_id
                     if source_id is not None:
                         task["source_id"] = source_id
+                    if tenant_id is not None:
+                        task["tenant_id"] = resolved_tenant
                     if owner is not None:
                         task["owner"] = owner
                     if retry_count is not None:
@@ -292,9 +311,9 @@ def upsert_task(
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO tasks (
-                        task_id, kind, title, status, payload_json, result_json, thread_id, source_id, owner,
+                        task_id, kind, title, status, payload_json, result_json, thread_id, source_id, tenant_id, owner,
                         retry_count, max_steps, current_step, error_code, error_message, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task["task_id"],
@@ -305,6 +324,7 @@ def upsert_task(
                         json.dumps(task.get("result") or {}, ensure_ascii=False),
                         task.get("thread_id"),
                         task.get("source_id"),
+                        task.get("tenant_id") or resolved_tenant,
                         task.get("owner"),
                         int(task.get("retry_count") or 0),
                         int(task.get("max_steps") or 0),
@@ -331,6 +351,7 @@ def upsert_task(
                 "result": result or {},
                 "thread_id": thread_id,
                 "source_id": source_id,
+                "tenant_id": resolved_tenant,
                 "owner": owner,
                 "retry_count": retry_count or 0,
                 "max_steps": max_steps or 0,
@@ -352,6 +373,8 @@ def upsert_task(
                 task["thread_id"] = thread_id
             if source_id is not None:
                 task["source_id"] = source_id
+            if tenant_id is not None:
+                task["tenant_id"] = resolved_tenant
             if owner is not None:
                 task["owner"] = owner
             if retry_count is not None:
@@ -463,7 +486,13 @@ def get_task_events(task_id: str, limit: int | None = None) -> list[dict[str, An
     return events
 
 
-def list_tasks(kind: str | None = None, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+def list_tasks(
+    kind: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    tenant_id: str | None = None,
+    owner: str | None = None,
+) -> list[dict[str, Any]]:
     with _TASK_LOCK:
         if _use_sqlite():
             _ensure_sqlite_store()
@@ -475,6 +504,12 @@ def list_tasks(kind: str | None = None, status: str | None = None, limit: int = 
             if status:
                 clauses.append("status = ?")
                 params.append(_normalize_status(status))
+            if tenant_id:
+                clauses.append("tenant_id = ?")
+                params.append(tenant_id)
+            if owner:
+                clauses.append("owner = ?")
+                params.append(owner)
             where_clause = f" WHERE {' AND '.join(clauses)}" if clauses else ""
             params.append(max(1, limit))
             query = f"SELECT * FROM tasks{where_clause} ORDER BY updated_at DESC LIMIT ?"
@@ -487,11 +522,26 @@ def list_tasks(kind: str | None = None, status: str | None = None, limit: int = 
     if status:
         target = _normalize_status(status)
         items = [item for item in items if str(item.get("status") or "") == target]
+    if tenant_id:
+        items = [item for item in items if str(item.get("tenant_id") or settings.default_tenant_id) == tenant_id]
+    if owner:
+        items = [item for item in items if str(item.get("owner") or "") == owner]
     items.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
     return items[: max(1, limit)]
 
 
-def start_task(task_id: str, *, kind: str, title: str, payload: dict[str, Any] | None = None, thread_id: str | None = None, source_id: str | None = None, max_steps: int | None = None) -> dict[str, Any]:
+def start_task(
+    task_id: str,
+    *,
+    kind: str,
+    title: str,
+    payload: dict[str, Any] | None = None,
+    thread_id: str | None = None,
+    source_id: str | None = None,
+    max_steps: int | None = None,
+    tenant_id: str | None = None,
+    owner: str | None = None,
+) -> dict[str, Any]:
     task = upsert_task(
         task_id,
         kind=kind,
@@ -500,6 +550,8 @@ def start_task(task_id: str, *, kind: str, title: str, payload: dict[str, Any] |
         payload=payload or {},
         thread_id=thread_id,
         source_id=source_id,
+        tenant_id=tenant_id,
+        owner=owner,
         max_steps=max_steps,
         current_step=0,
         error_code=None,
@@ -509,7 +561,17 @@ def start_task(task_id: str, *, kind: str, title: str, payload: dict[str, Any] |
     return task
 
 
-def mark_task_status(task_id: str, *, status: str, message: str, result: dict[str, Any] | None = None, current_step: int | None = None, retry_count: int | None = None, error_code: str | None = None, error_message: str | None = None) -> dict[str, Any] | None:
+def mark_task_status(
+    task_id: str,
+    *,
+    status: str,
+    message: str,
+    result: dict[str, Any] | None = None,
+    current_step: int | None = None,
+    retry_count: int | None = None,
+    error_code: str | None = None,
+    error_message: str | None = None,
+) -> dict[str, Any] | None:
     task = get_task(task_id)
     if not task:
         return None
@@ -522,6 +584,7 @@ def mark_task_status(task_id: str, *, status: str, message: str, result: dict[st
         result=result if result is not None else dict(task.get("result") or {}),
         thread_id=task.get("thread_id"),
         source_id=task.get("source_id"),
+        tenant_id=task.get("tenant_id") or settings.default_tenant_id,
         retry_count=retry_count if retry_count is not None else int(task.get("retry_count") or 0),
         max_steps=int(task.get("max_steps") or 0),
         current_step=current_step if current_step is not None else int(task.get("current_step") or 0),
@@ -580,4 +643,4 @@ def retry_task(task_id: str, *, message: str, current_step: int | None = None, e
 
 
 def cancel_task(task_id: str, *, message: str = "任务已取消") -> dict[str, Any] | None:
-    return mark_task_status(task_id, status="cancelled", message=message)
+    return mark_task_status(task_id, status="cancelled", message=message, error_code="TASK_CANCELLED", error_message=message)
