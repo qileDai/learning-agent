@@ -4,11 +4,29 @@
     "GROUNDING_PASSED": 3,
     "GROUNDING_WEAK_EVIDENCE": 3,
     "ANSWER_MISSING_ASPECTS": 2,
-    "UNKNOWN": 2,
-    "CHAT_START_FAILED": 1,
-    "NO_RETRY_GREETING": 1
+    "CHAT_START_FAILED": 2,
+    "NO_RETRY_GREETING": 1,
+    "UNKNOWN": 1
   },
   "items": [
+    {
+      "task_id": "71b92315-fa10-4863-ac06-c7ee730f2457",
+      "tenant_id": "public",
+      "owner": "anonymous",
+      "status": "failed",
+      "question": "牛顿第一",
+      "answer": "",
+      "reason_code": "CHAT_START_FAILED",
+      "reason": "Connection error.",
+      "answer_type": "fact",
+      "missing_aspects": [],
+      "grounding_score": 0.0,
+      "citation_coverage": 0.0,
+      "fact_coverage": 0.0,
+      "retrieval_summary": {},
+      "execution_trace": [],
+      "updated_at": "2026-06-17T15:24:41Z"
+    },
     {
       "task_id": "b4ec6499-c040-41f1-a381-1133b4eb8820",
       "tenant_id": "public",
@@ -1713,45 +1731,6 @@
       },
       "execution_trace": [],
       "updated_at": "2026-05-25T06:30:28Z"
-    },
-    {
-      "task_id": "ffb53641-f00e-4e40-8d1a-68511e2cee0d",
-      "tenant_id": null,
-      "owner": null,
-      "status": "awaiting_input",
-      "question": "python",
-      "answer": "",
-      "reason_code": "UNKNOWN",
-      "reason": "",
-      "answer_type": "fact",
-      "missing_aspects": [],
-      "grounding_score": 0.0,
-      "citation_coverage": 0.0,
-      "fact_coverage": 0.0,
-      "retrieval_summary": {
-        "query_expansions": [
-          "Python 编程"
-        ],
-        "route_subjects": [
-          "computer_science"
-        ],
-        "route_type": "simple",
-        "graph_documents": 1,
-        "vector_candidates": 15,
-        "lexical_candidates": 2,
-        "final_candidates": 9,
-        "max_per_source": 2,
-        "vector_k": 18,
-        "lexical_k": 16,
-        "final_k": 8,
-        "rerank_window": 15,
-        "cache_hit": true,
-        "cache_similarity": 1.0,
-        "chunk_budget_tokens": 260,
-        "graph_budget_tokens": 120
-      },
-      "execution_trace": [],
-      "updated_at": "2026-05-25T06:03:33Z"
     }
   ]
 }

@@ -616,6 +616,9 @@ export default function App() {
   const failureReasonEntries = useMemo(() => Object.entries(failureSamples?.by_reason ?? {}).slice(0, 4), [failureSamples]);
   const failurePreviewItems = failureSamples?.items.slice(0, 3) ?? [];
   const failureEvalPreview = failureEval?.items.slice(0, 4) ?? [];
+  const isSelecting = phase === "select" && chunks.length > 0;
+  const workspacePhaseLabel =
+    phase === "loading" ? "处理中" : phase === "select" ? "待选证据" : phase === "done" ? "已完成" : "待提问";
 
   return (
     <div className="layout">
@@ -806,297 +809,344 @@ export default function App() {
 
       <main className="chat">
         <section className="workspace-header">
-          <div>
-            <h2>{activeView === "education" ? "教育智能体工作台" : "股票潜力榜"}</h2>
-            <p>
-              {activeView === "education"
-                ? "知识问答、素材生成与任务回看统一放在一个工作台里。"
-                : "接入实时 A 股行情后生成最有潜力的 10 只股票，便于快速浏览机会与风险。"}
-            </p>
+          <div className="workspace-header__top">
+            <div>
+              <h2>{activeView === "education" ? "教育智能体工作台" : "股票潜力榜"}</h2>
+              <p>
+                {activeView === "education"
+                  ? "把问答、检索诊断、任务恢复和素材生产收拢到同一个工作区，减少来回切换。"
+                  : "接入实时 A 股行情后生成最有潜力的 10 只股票，便于快速浏览机会与风险。"}
+              </p>
+            </div>
+            <div className="workspace-tabs">
+              <button
+                type="button"
+                className={`workspace-tab${activeView === "education" ? " workspace-tab--active" : ""}`}
+                onClick={() => setActiveView("education")}
+              >
+                教育智能体
+              </button>
+              <button
+                type="button"
+                className={`workspace-tab${activeView === "stocks" ? " workspace-tab--active" : ""}`}
+                onClick={() => setActiveView("stocks")}
+              >
+                股票机会
+              </button>
+            </div>
           </div>
-          <div className="workspace-tabs">
-            <button
-              type="button"
-              className={`workspace-tab${activeView === "education" ? " workspace-tab--active" : ""}`}
-              onClick={() => setActiveView("education")}
-            >
-              教育智能体
-            </button>
-            <button
-              type="button"
-              className={`workspace-tab${activeView === "stocks" ? " workspace-tab--active" : ""}`}
-              onClick={() => setActiveView("stocks")}
-            >
-              股票机会
-            </button>
-          </div>
+
+          {activeView === "education" ? (
+            <div className="workspace-overview">
+              <article className="workspace-overview-card">
+                <span>当前状态</span>
+                <strong>{workspacePhaseLabel}</strong>
+                <p>{isSelecting ? "已命中知识片段，等待人工单选后继续生成。" : "支持直接问答、暂存恢复和过程回看。"}</p>
+              </article>
+              <article className="workspace-overview-card">
+                <span>待继续问答</span>
+                <strong>{pendingChats.length}</strong>
+                <p>中断问答会自动暂存，可随时恢复到选证步骤。</p>
+              </article>
+              <article className="workspace-overview-card">
+                <span>最近任务</span>
+                <strong>{taskHistory.length}</strong>
+                <p>支持查看任务详情、检索评分和执行轨迹。</p>
+              </article>
+              <article className="workspace-overview-card">
+                <span>失败样本</span>
+                <strong>{failureSamples?.total ?? 0}</strong>
+                <p>可直接回流成检索评测样本，观察命中率和 grounding 表现。</p>
+              </article>
+            </div>
+          ) : null}
         </section>
 
         {activeView === "education" ? (
-          <>
-            <section className="media-studio">
-              <div className="media-studio__header">
-                <div>
-                  <h2>AI 图片 / 视频工作台</h2>
-                  <p>老师只要描述想表达什么，就能快速生成宣传图或教学视频素材。</p>
-                </div>
-                {mediaJob?.message ? <span className="media-badge">{mediaJob.message}</span> : null}
-              </div>
-
-              <div className="media-grid">
-                <div className="media-form card">
-                  <label className="field">
-                    <span>素材文案</span>
-                    <textarea
-                      value={mediaPrompt}
-                      onChange={(e) => setMediaPrompt(e.target.value)}
-                      placeholder="例如：为小学历史公开课生成一张课堂活动宣传图，突出中国古代文明、互动闯关、金色国风海报感。"
-                      rows={4}
-                    />
-                  </label>
-
-                  <div className="field-row">
-                    <label className="field">
-                      <span>图片风格</span>
-                      <input value={imageStyle} onChange={(e) => setImageStyle(e.target.value)} placeholder="课堂活动宣传海报" />
-                    </label>
-                    <label className="field">
-                      <span>图片比例</span>
-                      <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
-                        <option value="16:9">16:9</option>
-                        <option value="4:3">4:3</option>
-                        <option value="1:1">1:1</option>
-                        <option value="9:16">9:16</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="field-row">
-                    <label className="field">
-                      <span>视频模式</span>
-                      <select value={videoMode} onChange={(e) => setVideoMode(e.target.value as VideoMode)}>
-                        <option value="text-to-video">文本生成视频</option>
-                        <option value="image-to-video">图片转视频</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>视频时长</span>
-                      <select
-                        value={durationSeconds}
-                        onChange={(e) => setDurationSeconds(Number(e.target.value))}
-                      >
-                        <option value={4}>4 秒</option>
-                        <option value={6}>6 秒</option>
-                        <option value={8}>8 秒</option>
-                        <option value={10}>10 秒</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  {videoMode === "image-to-video" && (
-                    <label className="field">
-                      <span>源图片地址</span>
-                      <input
-                        value={sourceImageUrl}
-                        onChange={(e) => setSourceImageUrl(e.target.value)}
-                        placeholder="先生成图片，或粘贴已有图片 URL"
-                      />
-                    </label>
-                  )}
-
-                  <div className="media-actions">
-                    <button
-                      type="button"
-                      className="btn primary"
-                      onClick={handleGenerateImage}
-                      disabled={mediaLoading || !mediaPrompt.trim()}
-                    >
-                      {mediaLoading ? "生成中…" : "生成图片"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn secondary media-action-secondary"
-                      onClick={handleGenerateVideo}
-                      disabled={
-                        mediaLoading ||
-                        !mediaPrompt.trim() ||
-                        (videoMode === "image-to-video" && !sourceImageUrl.trim())
-                      }
-                    >
-                      生成视频
-                    </button>
-                  </div>
-
-                  <div className="scene-list">
-                    <button
-                      type="button"
-                      className="scene-chip"
-                      onClick={() => {
-                        setMediaPrompt("为七年级历史公开课设计一张课堂活动宣传图，突出古代中国文明、团队闯关、金色国风风格。");
-                        setImageStyle("国风课堂海报");
-                        setAspectRatio("16:9");
-                      }}
-                    >
-                      课堂活动宣传图
-                    </button>
-                    <button
-                      type="button"
-                      className="scene-chip"
-                      onClick={() => {
-                        setMediaPrompt("生成一条 6 秒教学短视频，展示老师讲解牛顿第二定律、学生互动实验、结尾出现课堂口号。");
-                        setVideoMode("text-to-video");
-                        setDurationSeconds(6);
-                      }}
-                    >
-                      教学短视频
-                    </button>
-                  </div>
-                </div>
-
-                <div className="media-preview card">
-                  <div className="preview-head">
-                    <h3>生成结果</h3>
-                    {mediaJob ? (
-                      <span className="preview-meta">
-                        {mediaJob.provider}
-                        {mediaJob.provider_model ? ` · ${mediaJob.provider_model}` : ""}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {!mediaJob && <p className="placeholder">输入一句话，立即生成宣传图或视频素材。</p>}
-
-                  {mediaJob?.image_url && (
-                    <div className="media-block">
-                      <img className="media-image" src={mediaJob.image_url} alt={mediaJob.prompt} />
-                      <a href={mediaJob.image_url} target="_blank" rel="noreferrer">
-                        打开图片
-                      </a>
-                    </div>
-                  )}
-
-                  {mediaJob?.preview_url && !mediaJob.image_url && (
-                    <div className="media-block">
-                      <img className="media-image" src={mediaJob.preview_url} alt={mediaJob.prompt} />
-                    </div>
-                  )}
-
-                  {mediaJob?.video_url && (
-                    <div className="media-block">
-                      <video className="media-video" src={mediaJob.video_url} controls playsInline />
-                      <a href={mediaJob.video_url} target="_blank" rel="noreferrer">
-                        打开视频
-                      </a>
-                    </div>
-                  )}
-
-                  {mediaJob?.storyboard && (
-                    <div className="storyboard">
-                      <h4>视频分镜</h4>
-                      <pre>{mediaJob.storyboard}</pre>
-                    </div>
-                  )}
-
-                  {mediaJob?.status === "processing" && <p className="status">素材任务处理中，系统会自动轮询结果。</p>}
-                  {mediaError && <p className="error media-error">{mediaError}</p>}
-                </div>
-              </div>
-            </section>
-
-            <div className="messages">
-              {messages.length === 0 && (
-                <div className="empty">
-                  <p>向智能体提问，例如：</p>
-                  <ul>
-                    <li>Python 列表推导式怎么写？</li>
-                    <li>牛顿第二定律公式是什么？</li>
-                    <li>古诗词中「月」意象常表示什么？</li>
-                  </ul>
-                </div>
-              )}
-              {messages.map((msg, i) => (
-                <div key={i} className={`bubble ${msg.role}`}>
-                  {msg.content}
-                </div>
-              ))}
-            </div>
-
-            {phase === "select" && chunks.length > 0 && (
-              <section className="chunk-picker">
-                <div className="chunk-picker__header">
+          <section className="education-shell">
+            <div className="education-main">
+              <section className="conversation-shell">
+                <div className="conversation-shell__header">
                   <div>
-                    <h3>单选一条参考资料</h3>
-                    <p className="chunk-picker__hint">当前会话已进入人工中断状态，可暂存后稍后继续。</p>
+                    <h3>学习问答区</h3>
+                    <p>优先检索知识库并结合图谱生成答案，必要时进入人工选证流程。</p>
                   </div>
-                  <button type="button" className="btn secondary chunk-picker__pause" onClick={handlePauseSelection}>
-                    稍后继续
-                  </button>
+                  <div className="conversation-shell__chips">
+                    <span className="conversation-chip">流程：规划 → 检索 → 回答 → 评审</span>
+                    <span className={`conversation-chip${isSelecting ? " conversation-chip--accent" : ""}`}>状态：{workspacePhaseLabel}</span>
+                  </div>
                 </div>
-                <div className="chunk-list">
-                  {chunks.map((c) => (
-                    <label key={c.id} className={`chunk-item ${selectedId === c.id ? "selected" : ""}`}>
-                      <input
-                        type="radio"
-                        name="kb-chunk"
-                        checked={selectedId === c.id}
-                        onChange={() => setSelectedId(c.id)}
-                      />
-                      <span className="meta">
-                        {c.source} · {c.file_type}
-                        {c.subject ? ` · ${c.subject}` : ""}
-                        {c.chapter ? ` · ${c.chapter}` : ""}
-                        {c.retrieval_mode ? ` · ${c.retrieval_mode}` : ""}
-                      </span>
-                      <span className="meta">
-                        排序分：{formatDecimal(c.rank_score)} · 覆盖分：{formatDecimal(c.coverage_score ?? null)}
-                      </span>
-                      {c.concepts?.length ? <span className="meta">概念：{c.concepts.join("、")}</span> : null}
-                      <p>
-                        {c.content.slice(0, 200)}
-                        {c.content.length > 200 ? "…" : ""}
-                      </p>
-                    </label>
+
+                <div className="messages">
+                  {messages.length === 0 && (
+                    <div className="empty">
+                      <p>向智能体提问，例如：</p>
+                      <ul>
+                        <li>Python 列表推导式怎么写？</li>
+                        <li>牛顿第二定律公式是什么？</li>
+                        <li>古诗词中「月」意象常表示什么？</li>
+                      </ul>
+                    </div>
+                  )}
+                  {messages.map((msg, i) => (
+                    <div key={i} className={`bubble ${msg.role}`}>
+                      {msg.content}
+                    </div>
                   ))}
                 </div>
-                <div className="chunk-picker__actions">
+
+                {isSelecting && (
+                  <section className="chunk-picker">
+                    <div className="chunk-picker__header">
+                      <div>
+                        <h3>单选一条参考资料</h3>
+                        <p className="chunk-picker__hint">当前会话已进入人工中断状态，可暂存后稍后继续。</p>
+                      </div>
+                      <button type="button" className="btn secondary chunk-picker__pause" onClick={handlePauseSelection}>
+                        稍后继续
+                      </button>
+                    </div>
+                    <div className="chunk-list">
+                      {chunks.map((c) => (
+                        <label key={c.id} className={`chunk-item ${selectedId === c.id ? "selected" : ""}`}>
+                          <input
+                            type="radio"
+                            name="kb-chunk"
+                            checked={selectedId === c.id}
+                            onChange={() => setSelectedId(c.id)}
+                          />
+                          <span className="meta">
+                            {c.source} · {c.file_type}
+                            {c.subject ? ` · ${c.subject}` : ""}
+                            {c.chapter ? ` · ${c.chapter}` : ""}
+                            {c.retrieval_mode ? ` · ${c.retrieval_mode}` : ""}
+                          </span>
+                          <span className="meta">
+                            排序分：{formatDecimal(c.rank_score)} · 覆盖分：{formatDecimal(c.coverage_score ?? null)}
+                          </span>
+                          {c.concepts?.length ? <span className="meta">概念：{c.concepts.join("、")}</span> : null}
+                          <p>
+                            {c.content.slice(0, 200)}
+                            {c.content.length > 200 ? "…" : ""}
+                          </p>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="chunk-picker__actions">
+                      <button
+                        type="button"
+                        className="btn primary"
+                        onClick={handleConfirmSelection}
+                        disabled={!selectedId}
+                      >
+                        基于所选资料生成解答
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                {error && <p className="error">{error}</p>}
+
+                <footer className="composer">
+                  <div className="composer__body">
+                    <textarea
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      placeholder="输入学习问题…"
+                      rows={2}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void handleAsk();
+                        }
+                      }}
+                      disabled={phase === "loading"}
+                    />
+                    <span className="composer__hint">Enter 发送，Shift + Enter 换行</span>
+                  </div>
                   <button
                     type="button"
                     className="btn primary"
-                    onClick={handleConfirmSelection}
-                    disabled={!selectedId}
+                    onClick={() => void handleAsk()}
+                    disabled={phase === "loading" || !question.trim()}
                   >
-                    基于所选资料生成解答
+                    {phase === "loading" ? "处理中…" : "提问"}
                   </button>
+                </footer>
+              </section>
+            </div>
+
+            <aside className="education-aside">
+              <section className="media-studio">
+                <div className="media-studio__header">
+                  <div>
+                    <h2>AI 图片 / 视频工作台</h2>
+                    <p>老师只要描述想表达什么，就能快速生成宣传图或教学视频素材。</p>
+                  </div>
+                  {mediaJob?.message ? <span className="media-badge">{mediaJob.message}</span> : null}
+                </div>
+
+                <div className="media-grid">
+                  <div className="media-form card">
+                    <label className="field">
+                      <span>素材文案</span>
+                      <textarea
+                        value={mediaPrompt}
+                        onChange={(e) => setMediaPrompt(e.target.value)}
+                        placeholder="例如：为小学历史公开课生成一张课堂活动宣传图，突出中国古代文明、互动闯关、金色国风海报感。"
+                        rows={4}
+                      />
+                    </label>
+
+                    <div className="field-row">
+                      <label className="field">
+                        <span>图片风格</span>
+                        <input value={imageStyle} onChange={(e) => setImageStyle(e.target.value)} placeholder="课堂活动宣传海报" />
+                      </label>
+                      <label className="field">
+                        <span>图片比例</span>
+                        <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+                          <option value="16:9">16:9</option>
+                          <option value="4:3">4:3</option>
+                          <option value="1:1">1:1</option>
+                          <option value="9:16">9:16</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="field-row">
+                      <label className="field">
+                        <span>视频模式</span>
+                        <select value={videoMode} onChange={(e) => setVideoMode(e.target.value as VideoMode)}>
+                          <option value="text-to-video">文本生成视频</option>
+                          <option value="image-to-video">图片转视频</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>视频时长</span>
+                        <select
+                          value={durationSeconds}
+                          onChange={(e) => setDurationSeconds(Number(e.target.value))}
+                        >
+                          <option value={4}>4 秒</option>
+                          <option value={6}>6 秒</option>
+                          <option value={8}>8 秒</option>
+                          <option value={10}>10 秒</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {videoMode === "image-to-video" && (
+                      <label className="field">
+                        <span>源图片地址</span>
+                        <input
+                          value={sourceImageUrl}
+                          onChange={(e) => setSourceImageUrl(e.target.value)}
+                          placeholder="先生成图片，或粘贴已有图片 URL"
+                        />
+                      </label>
+                    )}
+
+                    <div className="media-actions">
+                      <button
+                        type="button"
+                        className="btn primary"
+                        onClick={handleGenerateImage}
+                        disabled={mediaLoading || !mediaPrompt.trim()}
+                      >
+                        {mediaLoading ? "生成中…" : "生成图片"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary media-action-secondary"
+                        onClick={handleGenerateVideo}
+                        disabled={
+                          mediaLoading ||
+                          !mediaPrompt.trim() ||
+                          (videoMode === "image-to-video" && !sourceImageUrl.trim())
+                        }
+                      >
+                        生成视频
+                      </button>
+                    </div>
+
+                    <div className="scene-list">
+                      <button
+                        type="button"
+                        className="scene-chip"
+                        onClick={() => {
+                          setMediaPrompt("为七年级历史公开课设计一张课堂活动宣传图，突出古代中国文明、团队闯关、金色国风风格。");
+                          setImageStyle("国风课堂海报");
+                          setAspectRatio("16:9");
+                        }}
+                      >
+                        课堂活动宣传图
+                      </button>
+                      <button
+                        type="button"
+                        className="scene-chip"
+                        onClick={() => {
+                          setMediaPrompt("生成一条 6 秒教学短视频，展示老师讲解牛顿第二定律、学生互动实验、结尾出现课堂口号。");
+                          setVideoMode("text-to-video");
+                          setDurationSeconds(6);
+                        }}
+                      >
+                        教学短视频
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="media-preview card">
+                    <div className="preview-head">
+                      <h3>生成结果</h3>
+                      {mediaJob ? (
+                        <span className="preview-meta">
+                          {mediaJob.provider}
+                          {mediaJob.provider_model ? ` · ${mediaJob.provider_model}` : ""}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {!mediaJob && <p className="placeholder">输入一句话，立即生成宣传图或视频素材。</p>}
+
+                    {mediaJob?.image_url && (
+                      <div className="media-block">
+                        <img className="media-image" src={mediaJob.image_url} alt={mediaJob.prompt} />
+                        <a href={mediaJob.image_url} target="_blank" rel="noreferrer">
+                          打开图片
+                        </a>
+                      </div>
+                    )}
+
+                    {mediaJob?.preview_url && !mediaJob.image_url && (
+                      <div className="media-block">
+                        <img className="media-image" src={mediaJob.preview_url} alt={mediaJob.prompt} />
+                      </div>
+                    )}
+
+                    {mediaJob?.video_url && (
+                      <div className="media-block">
+                        <video className="media-video" src={mediaJob.video_url} controls playsInline />
+                        <a href={mediaJob.video_url} target="_blank" rel="noreferrer">
+                          打开视频
+                        </a>
+                      </div>
+                    )}
+
+                    {mediaJob?.storyboard && (
+                      <div className="storyboard">
+                        <h4>视频分镜</h4>
+                        <pre>{mediaJob.storyboard}</pre>
+                      </div>
+                    )}
+
+                    {mediaJob?.status === "processing" && <p className="status">素材任务处理中，系统会自动轮询结果。</p>}
+                    {mediaError && <p className="error media-error">{mediaError}</p>}
+                  </div>
                 </div>
               </section>
-            )}
-
-            {error && <p className="error">{error}</p>}
-
-            <footer className="composer">
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="输入学习问题…"
-                rows={2}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleAsk();
-                  }
-                }}
-                disabled={phase === "loading"}
-              />
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => void handleAsk()}
-                disabled={phase === "loading" || !question.trim()}
-              >
-                {phase === "loading" ? "处理中…" : "提问"}
-              </button>
-            </footer>
-          </>
+            </aside>
+          </section>
         ) : (
           <section className="stock-page">
             <div className="stock-hero card">
