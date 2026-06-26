@@ -24,6 +24,7 @@ class RetrievalSummary(TypedDict, total=False):
     route_type: str
     answer_type: str
     router_features: list[str]
+    intent_profile: dict[str, object]
     graph_documents: int
     vector_candidates: int
     lexical_candidates: int

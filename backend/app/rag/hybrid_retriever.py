@@ -132,6 +132,7 @@ def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: 
         retrieval_summary.setdefault("route_type", route_type)
         retrieval_summary.setdefault("answer_type", answer_type)
         retrieval_summary.setdefault("router_features", query_plan.get("router_features") or [])
+        retrieval_summary.setdefault("intent_profile", query_plan.get("intent_profile") or {})
         retrieval_summary.setdefault("vector_k", vector_k)
         retrieval_summary.setdefault("lexical_k", lexical_k)
         retrieval_summary.setdefault("rerank_window", settings.retrieval_rerank_window)
@@ -293,6 +294,7 @@ def hybrid_retrieve(question: str, vector_k: int | None = None, *, retry_count: 
         "route_type": route_type,
         "answer_type": answer_type,
         "router_features": query_plan.get("router_features") or [],
+        "intent_profile": query_plan.get("intent_profile") or {},
         "graph_documents": graph_docs,
         "vector_candidates": len([doc for doc in ranked if "vector" in str(doc.metadata.get("retrieval_mode", ""))]),
         "lexical_candidates": len([doc for doc in ranked if "lexical" in str(doc.metadata.get("retrieval_mode", ""))]),

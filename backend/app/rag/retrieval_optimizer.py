@@ -13,6 +13,7 @@ from app.config import settings
 from app.rag.graph_store import load_graph_index
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_+#.-]{2,}")
+_GREETING_RE = re.compile(r"^(你好|您好|嗨|哈喽|hello|hi|hey|早上好|下午好|晚上好|在吗|同学你好)[\s!！?？。.~、，]*$", re.IGNORECASE)
 _ANALYSIS_HINTS = ("企业级", "方案", "架构", "优化", "设计", "治理", "评估", "总结", "策略", "路线", "落地", "系统")
 _COMPLEX_HINTS = ("区别", "对比", "为什么", "原因", "如何", "怎么", "步骤", "实现", "原理", "流程", "注意", "举例")
 _SENTENCE_SPLIT_RE = re.compile(r"[。！？!?；;\n]+")
@@ -21,6 +22,21 @@ _PROCESS_HINTS = ("如何", "怎么", "步骤", "流程", "实现", "做法", "�
 _COMPARISON_HINTS = ("区别", "对比", "比较", "不同", "优缺点", "联系")
 _ANALYSIS_QUESTION_HINTS = ("为什么", "原因", "影响", "分析", "评估", "总结")
 _ADVICE_HINTS = ("建议", "怎么学", "怎么做", "入门", "注意什么", "推荐")
+_ANSWER_TYPE_HINTS = {
+    "comparison": _COMPARISON_HINTS,
+    "process": _PROCESS_HINTS,
+    "analysis": _ANALYSIS_QUESTION_HINTS,
+    "definition": _DEFINITION_HINTS,
+    "advice": _ADVICE_HINTS,
+}
+_TASK_INTENT_MAP = {
+    "definition": "understand_concept",
+    "process": "solve_how_to",
+    "comparison": "compare_options",
+    "analysis": "analyze_reasoning",
+    "advice": "action_guidance",
+    "fact": "fact_lookup",
+}
 _ASPECT_KEYWORDS = {
     "定义": ("是", "指", "定义", "含义", "概念"),
     "核心要点": ("核心", "要点", "特点", "本质", "关键"),
@@ -101,21 +117,104 @@ def token_overlap_ratio(left: str, right: str) -> float:
     return round(len(left_tokens & right_tokens) / max(min(len(left_tokens), len(right_tokens)), 1), 4)
 
 
-def infer_answer_type(question: str) -> str:
+def _hint_matches(text: str, hints: tuple[str, ...]) -> list[str]:
+    return [hint for hint in hints if hint and hint in text]
+
+
+def recognize_intent_layers(question: str) -> dict[str, Any]:
     text = (question or "").strip()
+    normalized = text.casefold()
     if not text:
-        return "fact"
-    if any(hint in text for hint in _COMPARISON_HINTS):
-        return "comparison"
-    if any(hint in text for hint in _PROCESS_HINTS):
-        return "process"
-    if any(hint in text for hint in _ANALYSIS_QUESTION_HINTS):
-        return "analysis"
-    if any(hint in text for hint in _DEFINITION_HINTS):
-        return "definition"
-    if any(hint in text for hint in _ADVICE_HINTS):
-        return "advice"
-    return "fact"
+        return {
+            "session_intent": "empty",
+            "session_confidence": 1.0,
+            "task_intent": _TASK_INTENT_MAP["fact"],
+            "task_confidence": 0.0,
+            "answer_type": "fact",
+            "answer_type_scores": {"fact": 0.0},
+            "route_type": "simple",
+            "route_confidence": 0.0,
+            "matched_hints": [],
+            "router_features": [],
+            "risk_flags": ["empty_query"],
+        }
+
+    greeting = len(text) <= 24 and bool(_GREETING_RE.match(text))
+    answer_type_scores: dict[str, float] = {"fact": 0.18}
+    matched_hints: list[str] = []
+    for answer_type, hints in _ANSWER_TYPE_HINTS.items():
+        hits = _hint_matches(text, hints)
+        matched_hints.extend(hits)
+        score = len(hits) * 0.32
+        if answer_type == "comparison" and any(token in text for token in ("A和B", "和", "vs", "VS")):
+            score += 0.08
+        if answer_type == "process" and any(token in text for token in ("先", "再", "最后")):
+            score += 0.06
+        if answer_type == "analysis" and any(token in text for token in ("导致", "风险", "价值", "影响")):
+            score += 0.08
+        if answer_type == "definition" and text.endswith(("吗", "呢", "？", "?")):
+            score += 0.04
+        if answer_type == "advice" and any(token in text for token in ("推荐", "适合", "应该")):
+            score += 0.08
+        if score > 0:
+            answer_type_scores[answer_type] = round(score, 4)
+
+    ordered_types = ["comparison", "process", "analysis", "definition", "advice", "fact"]
+    answer_type = max(ordered_types, key=lambda item: (answer_type_scores.get(item, 0.0), -ordered_types.index(item)))
+    top_answer_score = float(answer_type_scores.get(answer_type, answer_type_scores.get("fact", 0.18)))
+    next_answer_score = max([score for name, score in answer_type_scores.items() if name != answer_type], default=0.0)
+
+    route_type = "simple"
+    route_score = 0.12
+    analysis_hits = _hint_matches(text, _ANALYSIS_HINTS)
+    router_features: list[str] = [answer_type]
+    if greeting:
+        router_features.append("greeting")
+    if len(text) >= 36:
+        router_features.append("long_query")
+    if re.search(r"\d", text):
+        router_features.append("contains_number")
+    if any(token in text for token in ("图", "表", "清单", "矩阵")):
+        router_features.append("needs_structure")
+    if any(token in text for token in ("以及", "并且", "同时", "分别", "先", "再")):
+        router_features.append("multi_clause")
+    if any(token in normalized for token in (" vs ", " or ", " and ")):
+        router_features.append("mixed_language")
+
+    if answer_type in {"analysis", "comparison"} or analysis_hits or len(text) >= 24:
+        route_type = "analysis"
+        route_score = 0.78 + min(len(analysis_hits) * 0.06, 0.16)
+    elif answer_type == "process" or any(hint in text for hint in _COMPLEX_HINTS) or len(text) >= 12:
+        route_type = "complex"
+        route_score = 0.64 + min(sum(1 for hint in _COMPLEX_HINTS if hint in text) * 0.03, 0.15)
+
+    risk_flags: list[str] = []
+    if greeting:
+        risk_flags.append("non_task_query")
+    if top_answer_score - next_answer_score <= 0.08 and len(answer_type_scores) > 1:
+        risk_flags.append("ambiguous_answer_type")
+    if route_type != "simple" and len(text) >= 36:
+        risk_flags.append("long_complex_query")
+    if any(token in text for token in ("还是", "或者", "二选一", "怎么选")):
+        risk_flags.append("requires_disambiguation")
+
+    return {
+        "session_intent": "greeting" if greeting else "task",
+        "session_confidence": 0.98 if greeting else 0.92,
+        "task_intent": _TASK_INTENT_MAP.get(answer_type, "fact_lookup"),
+        "task_confidence": round(min(0.99, max(0.24, top_answer_score + 0.18)), 4),
+        "answer_type": answer_type,
+        "answer_type_scores": {key: round(value, 4) for key, value in sorted(answer_type_scores.items(), key=lambda item: (-item[1], item[0]))},
+        "route_type": route_type,
+        "route_confidence": round(min(0.99, route_score), 4),
+        "matched_hints": [*matched_hints[:6], *analysis_hits[:4]],
+        "router_features": list(dict.fromkeys(router_features)),
+        "risk_flags": risk_flags[:4],
+    }
+
+
+def infer_answer_type(question: str) -> str:
+    return str(recognize_intent_layers(question).get("answer_type") or "fact")
 
 
 def expected_answer_aspects(question: str, answer_type: str | None = None) -> list[str]:
@@ -135,37 +234,26 @@ def expected_answer_aspects(question: str, answer_type: str | None = None) -> li
 
 def classify_query(question: str) -> dict[str, Any]:
     text = (question or "").strip()
-    answer_type = infer_answer_type(text)
-    route_type = "simple"
-    matched_hints: list[str] = []
-    router_features: list[str] = [answer_type]
-    if settings.retrieval_strategy_router_enabled:
-        for hint in _ANALYSIS_HINTS:
-            if hint in text:
-                matched_hints.append(hint)
-        if answer_type in {"analysis", "comparison"} or matched_hints or len(text) >= 24:
-            route_type = "analysis"
-        elif answer_type == "process" or any(hint in text for hint in _COMPLEX_HINTS) or len(text) >= 12:
-            route_type = "complex"
-    if len(text) >= 36:
-        router_features.append("long_query")
-    if re.search(r"\d", text):
-        router_features.append("contains_number")
-    if "图" in text or "表" in text:
-        router_features.append("needs_structure")
+    intent_profile = recognize_intent_layers(text)
+    answer_type = str(intent_profile.get("answer_type") or "fact")
+    route_type = str(intent_profile.get("route_type") or "simple")
+    matched_hints = [str(item).strip() for item in intent_profile.get("matched_hints") or [] if str(item).strip()]
+    router_features = [str(item).strip() for item in intent_profile.get("router_features") or [] if str(item).strip()]
+
     vector_k = settings.retrieval_vector_k
     lexical_k = settings.retrieval_lexical_k
     final_k = settings.retrieval_final_k
     max_per_source = settings.retrieval_max_per_source
-    if route_type == "complex":
-        vector_k += 4
-        lexical_k += 4
-        final_k += 1
-    elif route_type == "analysis":
-        vector_k += 8
-        lexical_k += 8
-        final_k += 2
-        max_per_source += 1
+    if settings.retrieval_strategy_router_enabled:
+        if route_type == "complex":
+            vector_k += 4
+            lexical_k += 4
+            final_k += 1
+        elif route_type == "analysis":
+            vector_k += 8
+            lexical_k += 8
+            final_k += 2
+            max_per_source += 1
     return {
         "route_type": route_type,
         "matched_hints": matched_hints[:6],
@@ -176,6 +264,7 @@ def classify_query(question: str) -> dict[str, Any]:
         "answer_type": answer_type,
         "expected_aspects": expected_answer_aspects(text, answer_type),
         "router_features": router_features,
+        "intent_profile": intent_profile,
     }
 
 

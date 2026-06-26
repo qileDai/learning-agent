@@ -191,6 +191,7 @@ def _default_retrieval_summary() -> dict:
         "route_type": "simple",
         "answer_type": "fact",
         "router_features": [],
+        "intent_profile": {},
         "graph_documents": 0,
         "vector_candidates": 0,
         "lexical_candidates": 0,
